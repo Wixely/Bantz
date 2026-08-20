@@ -1,6 +1,6 @@
 :root { --bg:#0d1017; --panel:#161b26; --panel2:#1c2230; --line:#2b3345; --text:#f6f2ea; --muted:#9aa5b7; --mint:#68e0b1; --coral:#ff7868; }
 * { box-sizing:border-box; }
-body { margin:0; background:#0d1017; color:#f6f2ea; font-family:"Segoe UI",sans-serif; }
+body { margin:0; --cupri-bg:#0d1017; --cupri-surface:#1c2230; --cupri-text:#f6f2ea; --cupri-muted:#9aa5b7; --cupri-border:#465066; --cupri-hover:#273249; --cupri-accent:#c9782d; background:#0d1017; color:#f6f2ea; font-family:"Segoe UI",sans-serif; }
 .cupri-button,.config-cog,.back-control,.runtime-pick,.runtime-option { transition:background 160ms ease,color 160ms ease,border-color 160ms ease,transform 140ms ease; }
 .cupri-button:hover { background:#d78638; }
 .cupri-button.ghost:hover { background:#251c17; color:#ffad68; border-color:#ff9d57; }
