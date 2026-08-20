@@ -36,7 +36,8 @@ public sealed class DictationWorkflow(
     IAsyncDelay delay,
     Func<bool> shouldPressEnter,
     Func<ActivationKind, int>? delaySeconds = null,
-    TimeProvider? timeProvider = null) : IDisposable
+    TimeProvider? timeProvider = null,
+    Func<bool>? shouldAutomaticallyWrite = null) : IDisposable
 {
     public static readonly TimeSpan MinimumRecordingDuration = TimeSpan.FromSeconds(1.5);
 
@@ -181,6 +182,16 @@ public sealed class DictationWorkflow(
                 return;
             }
 
+            if (shouldAutomaticallyWrite?.Invoke() == false)
+            {
+                PublishWithPending(new(
+                    DictationState.Completed,
+                    activation,
+                    "Transcribed — use Copy to place it on the clipboard",
+                    text));
+                return;
+            }
+
             var secondsToWait = Math.Clamp(delaySeconds?.Invoke(activation) ??
                 (activation == ActivationKind.Button ? 5 : 0), 0, 10);
             EnqueueInjection(new(text, activation, TimeSpan.FromSeconds(secondsToWait), cancellationToken));
@@ -312,6 +323,16 @@ public sealed class DictationWorkflow(
 
     private void Inject(InjectionRequest request)
     {
+        if (shouldAutomaticallyWrite?.Invoke() == false)
+        {
+            PublishPreservingActivity(new(
+                DictationState.Completed,
+                request.Activation,
+                "Automatic writing is off — use Copy instead",
+                request.Text));
+            return;
+        }
+
         var injecting = new DictationSnapshot(
             DictationState.Injecting,
             request.Activation,

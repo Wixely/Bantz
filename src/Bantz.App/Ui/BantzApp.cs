@@ -20,6 +20,7 @@ public sealed class BantzApp : CupriApp
     private readonly AppStorage _storage;
     private List<InputBinding>? _bindingUndo;
     private bool _modelDownloadInProgress;
+    private string _latestTranscript = "";
 
     public BantzApp(
         DictationWorkflow workflow,
@@ -81,17 +82,19 @@ public sealed class BantzApp : CupriApp
             return true;
         });
         document.OnClick(".countdown-cancel", _ => _workflow.CancelPendingInjection());
+        document.OnClick(".transcript-copy", _ => CopyTranscript());
         document.OnClick(".settings-open", _ => _model.Page = "settings");
         document.OnClick(".onboarding-auto", _ => ChooseRuntime(TranscriptionRuntime.Automatic));
         document.OnClick(".onboarding-cpu", _ => ChooseRuntime(TranscriptionRuntime.Cpu));
         document.OnClick(".runtime-gpu", _ => SelectRuntime(TranscriptionRuntime.Automatic));
         document.OnClick(".runtime-cpu", _ => SelectRuntime(TranscriptionRuntime.Cpu));
         document.OnClick(".model-download", pointerEvent => { _ = DownloadOrContinueAsync(); });
-        document.OnClick(".diagnostics-open", _ => OpenDiagnostics());
+        document.OnClick(".config-tab-settings", _ => OpenConfigTab("settings"));
+        document.OnClick(".config-tab-keybinds", _ => OpenConfigTab("keybinds"));
+        document.OnClick(".config-tab-diagnostics", _ => OpenDiagnostics());
         document.OnClick(".diagnostics-refresh", _ => RefreshDiagnostics());
         document.OnClick(".model-path-open", _ => OpenModelFolder());
-        document.OnClick(".diagnostics-back", _ => _model.Page = "settings");
-        document.OnClick(".settings-back", _ =>
+        document.OnClick(".config-back", _ =>
         {
             CancelBindingCapture?.Invoke();
             _model.CancelCaptureDisplay = "none";
@@ -209,7 +212,18 @@ public sealed class BantzApp : CupriApp
     public void OpenDiagnostics()
     {
         RefreshDiagnostics();
-        _model.Page = "diagnostics";
+        OpenConfigTab("diagnostics");
+    }
+
+    private void OpenConfigTab(string page)
+    {
+        if (_model.Page == "keybinds" && page != "keybinds")
+        {
+            CancelBindingCapture?.Invoke();
+            _model.CancelCaptureDisplay = "none";
+        }
+
+        _model.Page = page;
     }
 
     public void RefreshDiagnostics()
@@ -286,7 +300,7 @@ public sealed class BantzApp : CupriApp
         if (BeginBindingCapture?.Invoke() == true)
         {
             _model.CancelCaptureDisplay = "block";
-            _model.CaptureState = "Press a keyboard chord or any gamepad button. Escape cancels.";
+            _model.CaptureState = "Press a key, gamepad button, or mouse button outside Bantz. Escape cancels.";
             _model.CaptureDisplay = "block";
         }
         else
@@ -360,10 +374,37 @@ public sealed class BantzApp : CupriApp
         }
     }
 
+    private void CopyTranscript()
+    {
+        if (_latestTranscript.Length == 0)
+        {
+            _model.Status = "Nothing to copy yet";
+            return;
+        }
+
+        try
+        {
+            _model.Status = TryWriteClipboard(_latestTranscript)
+                ? "Transcript copied to clipboard"
+                : "Clipboard is unavailable";
+        }
+        catch
+        {
+            _model.Status = "Could not copy the transcript";
+        }
+    }
+
     private void ApplySnapshot(DictationSnapshot snapshot)
     {
         _model.Status = snapshot.Status;
-        _model.Transcript = snapshot.Transcript.Length == 0 ? "Your latest transcript will appear here." : snapshot.Transcript;
+        if (snapshot.Transcript.Length > 0)
+        {
+            _latestTranscript = snapshot.Transcript;
+        }
+
+        _model.Transcript = _latestTranscript.Length == 0
+            ? "Your latest transcript will appear here."
+            : _latestTranscript;
         _model.Countdown = snapshot.CountdownSeconds > 0
             ? snapshot.CountdownSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture)
             : "";
@@ -386,6 +427,7 @@ public sealed class BantzApp : CupriApp
 [CupriBindable]
 public sealed partial class BantzModel
 {
+    private bool _autoWrite;
     private bool _autoEnter;
     private bool _alwaysOnTop;
     private bool _buttonDelayEnabled;
@@ -398,6 +440,7 @@ public sealed partial class BantzModel
     public BantzModel(AppSettings settings)
     {
         _runtimeSelection = (settings.Runtime ?? TranscriptionRuntime.Automatic).ToString();
+        _autoWrite = settings.AutoWrite;
         _autoEnter = settings.AutoEnter;
         _alwaysOnTop = settings.AlwaysOnTop;
         _buttonDelayEnabled = settings.ButtonDelayEnabled;
@@ -414,8 +457,16 @@ public sealed partial class BantzModel
     public string MainDisplay => Page == "main" ? "flex" : "none";
     public string StorageDisplay => Page == "storage" ? "flex" : "none";
     public string OnboardingDisplay => Page == "onboarding" ? "flex" : "none";
-    public string SettingsDisplay => Page == "settings" ? "flex" : "none";
-    public string DiagnosticsDisplay => Page == "diagnostics" ? "flex" : "none";
+    public string ConfigDisplay => Page is "settings" or "keybinds" or "diagnostics" ? "flex" : "none";
+    public string SettingsTabDisplay => Page == "settings" ? "flex" : "none";
+    public string KeybindsTabDisplay => Page == "keybinds" ? "flex" : "none";
+    public string DiagnosticsTabDisplay => Page == "diagnostics" ? "flex" : "none";
+    public string SettingsTabClass => Page == "settings" ? "selected" : "";
+    public string KeybindsTabClass => Page == "keybinds" ? "selected" : "";
+    public string DiagnosticsTabClass => Page == "diagnostics" ? "selected" : "";
+    public string SettingsTabSelected => Page == "settings" ? "true" : "false";
+    public string KeybindsTabSelected => Page == "keybinds" ? "true" : "false";
+    public string DiagnosticsTabSelected => Page == "diagnostics" ? "true" : "false";
     public string Status { get; set; } = "Hold to talk";
     public string Transcript { get; set; } = "Your latest transcript will appear here.";
     public string Countdown { get; set; } = "";
@@ -429,7 +480,7 @@ public sealed partial class BantzModel
     public string CaptureDisplay { get; set; } = "none";
     public string CancelCaptureDisplay { get; set; } = "none";
     public string UndoDisplay { get; set; } = "none";
-    public int BindingsPanelHeight => CaptureDisplay == "block" ? 205 : 160;
+    public int BindingsListHeight => CaptureDisplay == "block" ? 205 : 250;
     public List<BindingRow> BindingRows { get; set; } = [];
     public string EmptyBindingsDisplay => BindingRows.Count == 0 ? "flex" : "none";
     public string BindingListDisplay => BindingRows.Count == 0 ? "none" : "block";
@@ -465,6 +516,12 @@ public sealed partial class BantzModel
     public string CpuRuntimeClass => SelectedRuntime == TranscriptionRuntime.Cpu ? "selected" : "";
     public string GpuRuntimePressed => SelectedRuntime == TranscriptionRuntime.Automatic ? "true" : "false";
     public string CpuRuntimePressed => SelectedRuntime == TranscriptionRuntime.Cpu ? "true" : "false";
+
+    public bool AutoWrite
+    {
+        get => _autoWrite;
+        set => Set(ref _autoWrite, value);
+    }
 
     public bool AutoEnter
     {
@@ -521,6 +578,7 @@ public sealed partial class BantzModel
     public AppSettings ToSettings() => new()
     {
         Runtime = SelectedRuntime,
+        AutoWrite = AutoWrite,
         AutoEnter = AutoEnter,
         AlwaysOnTop = AlwaysOnTop,
         ButtonDelayEnabled = ButtonDelayEnabled,
@@ -534,7 +592,13 @@ public sealed partial class BantzModel
         .Select(binding => new BindingRow
         {
             Id = binding.Id,
-            Device = binding.Device == InputDevice.Keyboard ? "KEYBOARD" : "GAMEPAD",
+            Device = binding.Device switch
+            {
+                InputDevice.Keyboard => "KEYBOARD",
+                InputDevice.Gamepad => "GAMEPAD",
+                InputDevice.Mouse => "MOUSE",
+                _ => "INPUT",
+            },
             Name = binding.DisplayName,
         })
         .ToList();

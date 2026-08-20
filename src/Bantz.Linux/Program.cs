@@ -52,7 +52,8 @@ using var workflow = new DictationWorkflow(
     injector,
     new SystemAsyncDelay(),
     () => model.AutoEnter,
-    model.DelayFor);
+    model.DelayFor,
+    shouldAutomaticallyWrite: () => model.AutoWrite);
 var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage);
 if (!storage.IsSelected)
 {
@@ -64,7 +65,7 @@ else if (settings.Runtime is null || !engine.IsModelAvailable || !runtimeManager
 }
 
 var requestedPage = ArgumentValue(args, "--page");
-if (requestedPage is "main" or "settings" or "diagnostics" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
     if (requestedPage == "diagnostics")

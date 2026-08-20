@@ -14,8 +14,33 @@ public sealed class SettingsStoreTests : IDisposable
         var settings = new SettingsStore(SettingsPath).Load();
 
         Assert.Null(settings.Runtime);
+        Assert.True(settings.AutoWrite);
         Assert.True(settings.ButtonDelayEnabled);
         Assert.Equal(5, settings.ButtonDelaySeconds);
+    }
+
+    [Fact]
+    public void AutomaticallyWriteChoiceSurvivesRestart()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.AutoWrite = false;
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.False(reloaded.AutoWrite);
+    }
+
+    [Fact]
+    public void SettingsFromBeforeAutoWriteDefaultToEnabled()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(SettingsPath, "{\"AutoEnter\":false,\"ButtonDelaySeconds\":5}");
+
+        var settings = new SettingsStore(SettingsPath).Load();
+
+        Assert.True(settings.AutoWrite);
     }
 
     [Fact]
@@ -59,6 +84,28 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(10, reloaded.ButtonDelaySeconds);
         Assert.Equal(0, reloaded.ShortcutDelaySeconds);
         Assert.Single(reloaded.Bindings);
+    }
+
+    [Fact]
+    public void MouseBindingsSurviveRestartAndDeduplicate()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        var mouse = new InputBinding
+        {
+            Device = InputDevice.Mouse,
+            Code = 3,
+            DisplayName = "Mouse Wheel Button",
+        };
+        settings.Bindings = [mouse, mouse.Copy()];
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        var binding = Assert.Single(reloaded.Bindings);
+        Assert.Equal(InputDevice.Mouse, binding.Device);
+        Assert.Equal(3u, binding.Code);
+        Assert.Equal("Mouse Wheel Button", binding.DisplayName);
     }
 
     public void Dispose()

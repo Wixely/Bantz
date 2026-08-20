@@ -10,9 +10,9 @@ Bantz is a small, private hold-to-talk dictation app for Windows, with an experi
 
 - Hold the large button, speak, then release. Once transcription finishes, Bantz gives you a visible five-second countdown to click a destination field before it types.
 - Cancel a pending countdown from its bottom bar. Pressing PTT again adds a 1.5-second safety buffer while preserving the pending transcript, so an earlier result can type while a new recording is underway.
-- On Windows, hold a configured keyboard chord or XInput gamepad button anywhere, speak, then release. The default is `Ctrl+Shift+Space` and types immediately.
+- On Windows, hold a configured keyboard chord, XInput gamepad button, or mouse button anywhere outside Bantz, speak, then release. The default is `Ctrl+Shift+Space` and types immediately.
 - Recordings shorter than 1.5 seconds are discarded as accidental presses and never sent to Whisper.
-- On Windows, open **Settings** to add several keyboard or gamepad inputs, remove them, undo the latest binding change, or restore the default.
+- On Windows, open **Settings** to add several keyboard, gamepad, or mouse inputs, remove them, undo the latest binding change, or restore the default. Mouse support includes left, right, wheel-click, Back, Forward, and modifier-plus-mouse chords.
 - Set button and shortcut delays independently from 0 to 10 seconds. Button delay starts enabled at five seconds; shortcut delay starts disabled at zero.
 - Enable **Press Enter afterwards** to send Enter after the transcript.
 - Enable **Always on top** to keep Bantz above other windows.
@@ -57,7 +57,7 @@ git submodule update --init --recursive
 dotnet run --project src/Bantz.Linux
 ```
 
-Global keyboard and gamepad bindings and window tray behaviour are currently Windows-only. The Vulkan runtime is also experimental on Linux; choose CPU for the compatibility path.
+Global keyboard, gamepad, and mouse bindings and window tray behaviour are currently Windows-only. The Vulkan runtime is also experimental on Linux; choose CPU for the compatibility path.
 
 ## Build and test
 
@@ -87,6 +87,7 @@ dotnet run --project src/Bantz.Windows -- --snapshot artifacts\bantz-ui.png --sn
 dotnet run --project src/Bantz.Windows -- --page storage --snapshot artifacts\bantz-storage.png
 dotnet run --project src/Bantz.Windows -- --page onboarding --snapshot artifacts\bantz-onboarding.png
 dotnet run --project src/Bantz.Windows -- --page settings --snapshot artifacts\bantz-settings.png
+dotnet run --project src/Bantz.Windows -- --page keybinds --snapshot artifacts\bantz-keybinds.png
 ```
 
 VS Code tasks and launch configuration are included. Open the repository and run **Bantz: debug**.
@@ -101,7 +102,7 @@ FUTO does not need a medium or large Whisper model: Whisper also has smaller Tin
 
 ## Current limits
 
-- Linux support is experimental and currently lacks global keyboard/gamepad bindings and tray behaviour. Audio capture depends on `arecord`, while text insertion depends on `wtype` or `xdotool`.
+- Linux support is experimental and currently lacks global keyboard/gamepad/mouse bindings and tray behaviour. Audio capture depends on `arecord`, while text insertion depends on `wtype` or `xdotool`.
 - XInput-compatible gamepads are supported. Other controller APIs are not yet mapped.
 - Windows prevents a normal process from injecting into an elevated destination. Run both applications at the same integrity level.
 - The default model recognises English. Supply another compatible GGML model when evaluating multilingual recognition; the current adapter still requests English and will need a language option before that becomes a supported flow.

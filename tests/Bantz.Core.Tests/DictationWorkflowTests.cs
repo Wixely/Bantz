@@ -47,6 +47,60 @@ public sealed class DictationWorkflowTests
     }
 
     [Fact]
+    public async Task DisabledAutomaticWritingKeepsTranscriptWithoutInjecting()
+    {
+        var delay = new DelayFake();
+        var injector = new InjectorFake();
+        using var workflow = new DictationWorkflow(
+            new RecorderFake(),
+            new EngineFake("copy this instead"),
+            injector,
+            delay,
+            () => true,
+            timeProvider: new RecordingTimeProvider(),
+            shouldAutomaticallyWrite: () => false);
+
+        await workflow.StartAsync(ActivationKind.Button);
+        await workflow.StopAsync(ActivationKind.Button);
+
+        Assert.Empty(delay.Delays);
+        Assert.Null(injector.LastInjection);
+        Assert.Equal(DictationState.Completed, workflow.Snapshot.State);
+        Assert.Equal("copy this instead", workflow.Snapshot.Transcript);
+        Assert.Contains("Copy", workflow.Snapshot.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DisablingAutomaticWritingDuringCountdownPreventsInjection()
+    {
+        var autoWrite = true;
+        var delay = new ReleasableDelayFake();
+        var injector = new InjectorFake();
+        using var workflow = new DictationWorkflow(
+            new RecorderFake(),
+            new EngineFake("do not type this"),
+            injector,
+            delay,
+            () => true,
+            _ => 5,
+            new RecordingTimeProvider(),
+            () => autoWrite);
+
+        await workflow.StartAsync(ActivationKind.Button);
+        await workflow.StopAsync(ActivationKind.Button);
+        await delay.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        autoWrite = false;
+        delay.ReleaseAll();
+        await WaitForSnapshotAsync(
+            workflow,
+            value => value.Status.Contains("writing is off", StringComparison.OrdinalIgnoreCase));
+
+        Assert.Null(injector.LastInjection);
+        Assert.Equal("do not type this", workflow.Snapshot.Transcript);
+    }
+
+    [Fact]
     public async Task ShortcutCanUseItsOwnConfiguredDelay()
     {
         var delay = new DelayFake();

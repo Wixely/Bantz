@@ -80,7 +80,13 @@
     </section>
 
     <section class="transcript-card">
-      <div class="card-heading"><span>Latest transcript</span><span class="local-badge">LOCAL</span></div>
+      <div class="card-heading">
+        <span>Latest transcript</span>
+        <div class="transcript-actions">
+          <span class="local-badge">LOCAL</span>
+          <div class="transcript-copy" role="button" aria-label="Copy latest transcript" title="Copy transcript"><cupri-icon name="copy" size="15"></cupri-icon></div>
+        </div>
+      </div>
       <p>{{Transcript}}</p>
     </section>
 
@@ -96,22 +102,29 @@
     </footer>
   </section>
 
-  <section class="settings-page" style="display:{{SettingsDisplay}}">
+  <section class="config-page" style="display:{{ConfigDisplay}}">
     <div class="page-heading">
-      <div><span class="eyebrow">PREFERENCES</span><h2>Settings</h2></div>
-      <div class="settings-heading-actions">
-        <cupri-button class="diagnostics-open" variant="ghost">Diagnostics</cupri-button>
-        <div class="settings-back back-control" role="button" aria-label="Back to dictation">Back</div>
-      </div>
+      <div><span class="eyebrow">CONFIGURATION</span><h2>Bantz settings</h2></div>
+      <div class="config-back back-control" role="button" aria-label="Back to dictation">Back</div>
     </div>
 
-    <section class="settings-panel">
+    <nav class="config-tabs" role="tablist" aria-label="Configuration sections">
+      <div class="config-tab config-tab-settings {{SettingsTabClass}}" role="tab" aria-selected="{{SettingsTabSelected}}">Settings</div>
+      <div class="config-tab config-tab-keybinds {{KeybindsTabClass}}" role="tab" aria-selected="{{KeybindsTabSelected}}">Keybinds</div>
+      <div class="config-tab config-tab-diagnostics {{DiagnosticsTabClass}}" role="tab" aria-selected="{{DiagnosticsTabSelected}}">Diagnostics</div>
+    </nav>
+
+    <section class="settings-panel config-body" style="display:{{SettingsTabDisplay}}">
       <div class="setting-row runtime-row">
         <div><strong>Whisper runtime</strong><span>Vulkan when available; loaded-runtime changes apply next launch.</span></div>
         <div class="runtime-buttons" role="group" aria-label="Whisper runtime">
           <div class="runtime-gpu runtime-option {{GpuRuntimeClass}}" role="button">GPU</div>
           <div class="runtime-cpu runtime-option {{CpuRuntimeClass}}" role="button">CPU</div>
         </div>
+      </div>
+      <div class="setting-row">
+        <div><strong>Automatically write transcription</strong><span>Type completed speech into the focused field.</span></div>
+        <div class="setting-control-slot"><cupri-switch checked="{{AutoWrite}}" aria-label="Automatically write transcription"></cupri-switch></div>
       </div>
       <div class="setting-row">
         <div><strong>Press Enter afterwards</strong><span>Submit the destination field after typing.</span></div>
@@ -130,7 +143,7 @@
         </div>
       </div>
       <div class="setting-row delay-row">
-        <div><strong>Delay after shortcut</strong><span>Applies to every keyboard and gamepad binding.</span></div>
+        <div><strong>Delay after shortcut</strong><span>Applies to every keyboard, gamepad, and mouse binding.</span></div>
         <div class="delay-controls">
           <cupri-switch checked="{{ShortcutDelayEnabled}}" aria-label="Enable shortcut delay"></cupri-switch>
           <cupri-number value="{{ShortcutDelaySeconds}}" min="0" max="10" step="1" aria-label="Shortcut delay seconds"></cupri-number>
@@ -139,18 +152,18 @@
       </div>
     </section>
 
-    <section class="bindings-panel" style="height:{{BindingsPanelHeight}}px">
-      <div class="section-heading"><div><strong>Hold-to-talk inputs</strong><span>Map several keyboard chords or gamepad buttons to dictation.</span></div></div>
-      <div class="binding-empty" style="display:{{EmptyBindingsDisplay}}">
+    <section class="bindings-panel keybinds-panel config-body" style="display:{{KeybindsTabDisplay}}">
+      <div class="section-heading"><div><strong>Hold-to-talk inputs</strong><span>Map keyboard, gamepad, or mouse buttons to dictation.</span></div></div>
+      <div class="binding-empty" style="display:{{EmptyBindingsDisplay}};height:{{BindingsListHeight}}px">
         <cupri-icon name="info" size="18"></cupri-icon>
-        <div><strong>No inputs assigned</strong><span>Add a keyboard shortcut or gamepad button.</span></div>
+        <div><strong>No inputs assigned</strong><span>Add a keyboard, gamepad, or mouse button.</span></div>
       </div>
-      <cupri-virtual class="binding-list" style="display:{{BindingListDisplay}}" role="list" height="74" item-height="50">
+      <div class="binding-list binding-scroll" style="display:{{BindingListDisplay}};height:{{BindingsListHeight}}px" role="list">
         <div class="binding-row" role="listitem" data-repeat="BindingRows">
           <span class="device-badge">{{Device}}</span><strong>{{Name}}</strong>
           <cupri-button variant="ghost" data-remove-binding="{{Id}}">Remove</cupri-button>
         </div>
-      </cupri-virtual>
+      </div>
       <div class="capture-message" style="display:{{CaptureDisplay}}" aria-live="polite">{{CaptureState}}</div>
       <div class="binding-actions">
         <cupri-button class="add-binding">Add input</cupri-button>
@@ -159,31 +172,24 @@
         <cupri-button class="restore-bindings" variant="ghost">Reset defaults</cupri-button>
       </div>
     </section>
-  </section>
 
-  <section class="diagnostics-page" style="display:{{DiagnosticsDisplay}}">
-    <div class="page-heading">
-      <div><span class="eyebrow">LOCAL ENGINE</span><h2>Whisper diagnostics</h2></div>
-      <cupri-button class="diagnostics-back" variant="ghost">Back</cupri-button>
-    </div>
-    <section class="diagnostic-hero">
-      <div class="diagnostic-state {{DiagnosticsStateClass}}"></div>
-      <div><strong>{{DiagnosticsStatus}}</strong><span>{{DiagnosticsSummary}}</span></div>
-    </section>
-    <section class="diagnostic-grid">
-      <div class="diagnostic-row"><span>Engine</span><strong>{{DiagnosticsEngine}}</strong></div>
-      <div class="diagnostic-row"><span>Managed binding</span><strong>{{DiagnosticsVersion}}</strong></div>
-      <div class="diagnostic-row"><span>Native runtime</span><strong>{{DiagnosticsRuntime}}</strong></div>
-      <div class="diagnostic-row"><span>Language</span><strong>{{DiagnosticsLanguage}}</strong></div>
-      <div class="diagnostic-row"><span>Model</span><strong>{{DiagnosticsModel}}</strong></div>
-      <div class="diagnostic-row"><span>Model size</span><strong>{{DiagnosticsModelSize}}</strong></div>
-      <div class="diagnostic-row path-row"><span>Model path</span><div class="model-path-open" role="button" aria-label="Open model folder"><strong>{{DiagnosticsModelPath}}</strong><span>OPEN FOLDER</span></div></div>
-      <div class="diagnostic-row"><span>Last transcription</span><strong>{{DiagnosticsLastRun}}</strong></div>
-    </section>
-    <div class="diagnostic-note">Audio stays on this device. Network access is used only to download the model when it is missing.</div>
-    <div class="diagnostic-actions">
-      <cupri-button class="diagnostics-refresh">Refresh</cupri-button>
-      <cupri-button class="diagnostics-back" variant="ghost">Done</cupri-button>
+    <div class="diagnostics-body config-body" style="display:{{DiagnosticsTabDisplay}}">
+      <section class="diagnostic-hero">
+        <div class="diagnostic-state {{DiagnosticsStateClass}}"></div>
+        <div class="diagnostic-summary"><strong>{{DiagnosticsStatus}}</strong><span>{{DiagnosticsSummary}}</span></div>
+        <cupri-button class="diagnostics-refresh" variant="ghost">Refresh</cupri-button>
+      </section>
+      <section class="diagnostic-grid">
+        <div class="diagnostic-row"><span>Engine</span><strong>{{DiagnosticsEngine}}</strong></div>
+        <div class="diagnostic-row"><span>Managed binding</span><strong>{{DiagnosticsVersion}}</strong></div>
+        <div class="diagnostic-row"><span>Native runtime</span><strong>{{DiagnosticsRuntime}}</strong></div>
+        <div class="diagnostic-row"><span>Language</span><strong>{{DiagnosticsLanguage}}</strong></div>
+        <div class="diagnostic-row"><span>Model</span><strong>{{DiagnosticsModel}}</strong></div>
+        <div class="diagnostic-row"><span>Model size</span><strong>{{DiagnosticsModelSize}}</strong></div>
+        <div class="diagnostic-row path-row"><span>Model path</span><div class="model-path-open" role="button" aria-label="Open model folder"><strong>{{DiagnosticsModelPath}}</strong><span>OPEN FOLDER</span></div></div>
+        <div class="diagnostic-row"><span>Last transcription</span><strong>{{DiagnosticsLastRun}}</strong></div>
+      </section>
+      <div class="diagnostic-note">Audio stays on this device. Network access is used only to download the model when it is missing.</div>
     </div>
   </section>
 </main>

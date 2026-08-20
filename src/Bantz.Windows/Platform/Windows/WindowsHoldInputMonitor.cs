@@ -12,7 +12,19 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
     private const int KeyUp = 0x0101;
     private const int SystemKeyDown = 0x0104;
     private const int SystemKeyUp = 0x0105;
+    private const int LeftButtonDown = 0x0201;
     private const int LeftButtonUp = 0x0202;
+    private const int RightButtonDown = 0x0204;
+    private const int RightButtonUp = 0x0205;
+    private const int MiddleButtonDown = 0x0207;
+    private const int MiddleButtonUp = 0x0208;
+    private const int ExtraButtonDown = 0x020B;
+    private const int ExtraButtonUp = 0x020C;
+    private const uint MouseLeft = 1;
+    private const uint MouseRight = 2;
+    private const uint MouseMiddle = 3;
+    private const uint MouseBack = 4;
+    private const uint MouseForward = 5;
     private const int VirtualKeyEscape = 0x1B;
     private const int VirtualKeyControl = 0x11;
     private const int VirtualKeyShift = 0x10;
@@ -32,7 +44,9 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
     private nint _keyboardHook;
     private nint _mouseHook;
     private InputBinding? _activeKeyboard;
+    private InputBinding? _activeMouse;
     private (uint Controller, InputBinding Binding)? _activeGamepad;
+    private uint? _capturedMouseRelease;
     private bool _capturing;
     private bool _disposed;
     private int _gamepadPollActive;
@@ -63,7 +77,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
     {
         lock (_sync)
         {
-            if (_capturing || _activeKeyboard is not null || _activeGamepad is not null)
+            if (_capturing || _activeKeyboard is not null || _activeMouse is not null || _activeGamepad is not null)
             {
                 return false;
             }
@@ -182,12 +196,77 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
 
     private nint MouseCallback(int code, nuint message, nint data)
     {
-        if (code >= 0 && message == LeftButtonUp)
+        if (code < 0)
         {
-            LeftMouseReleased?.Invoke();
+            return CallNextHookEx(nint.Zero, code, message, data);
         }
 
-        return CallNextHookEx(nint.Zero, code, message, data);
+        var mouse = Marshal.PtrToStructure<LowLevelMouseInput>(data);
+        if (!TryMouseButton(message, mouse.MouseData, out var mouseCode, out var isDown, out var isUp))
+        {
+            if (message == LeftButtonUp)
+            {
+                LeftMouseReleased?.Invoke();
+            }
+
+            return CallNextHookEx(nint.Zero, code, message, data);
+        }
+
+        Action? notification = null;
+        InputBinding? captured = null;
+        var suppress = false;
+        var overBantz = IsBantzWindowAt(mouse.Point);
+        lock (_sync)
+        {
+            if (_capturedMouseRelease == mouseCode)
+            {
+                suppress = true;
+                if (isUp)
+                {
+                    _capturedMouseRelease = null;
+                }
+            }
+            else if (_activeMouse is { } active && active.Code == mouseCode)
+            {
+                suppress = true;
+                if (isUp)
+                {
+                    _activeMouse = null;
+                    notification = HotkeyReleased;
+                }
+            }
+            else if (!overBantz && _capturing && isDown)
+            {
+                _capturing = false;
+                _capturedMouseRelease = mouseCode;
+                captured = CreateMouseBinding(mouseCode, CurrentModifiers());
+                suppress = true;
+            }
+            else if (!overBantz && isDown)
+            {
+                var binding = GetBindings().FirstOrDefault(candidate =>
+                    candidate.Device == InputDevice.Mouse &&
+                    candidate.Code == mouseCode &&
+                    candidate.Modifiers == CurrentModifiers());
+                if (binding is not null)
+                {
+                    _activeMouse = binding;
+                    suppress = true;
+                    notification = HotkeyPressed;
+                }
+            }
+        }
+
+        if (captured is not null)
+        {
+            BindingCaptured?.Invoke(captured);
+        }
+        else
+        {
+            notification?.Invoke();
+        }
+
+        return suppress ? 1 : CallNextHookEx(nint.Zero, code, message, data);
     }
 
     private void PollGamepads(object? state)
@@ -287,6 +366,14 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         DisplayName = KeyboardName(virtualKey, modifiers),
     };
 
+    private static InputBinding CreateMouseBinding(uint code, KeyboardModifiers modifiers) => new()
+    {
+        Device = InputDevice.Mouse,
+        Code = code,
+        Modifiers = modifiers,
+        DisplayName = MouseName(code, modifiers),
+    };
+
     private static KeyboardModifiers CurrentModifiers()
     {
         var result = KeyboardModifiers.None;
@@ -351,6 +438,58 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         _ => $"Gamepad 0x{code:X}",
     };
 
+    private static string MouseName(uint code, KeyboardModifiers modifiers)
+    {
+        var parts = new List<string>(5);
+        if (modifiers.HasFlag(KeyboardModifiers.Control)) parts.Add("Ctrl");
+        if (modifiers.HasFlag(KeyboardModifiers.Shift)) parts.Add("Shift");
+        if (modifiers.HasFlag(KeyboardModifiers.Alt)) parts.Add("Alt");
+        if (modifiers.HasFlag(KeyboardModifiers.Windows)) parts.Add("Win");
+        parts.Add(code switch
+        {
+            MouseLeft => "Mouse Left Button",
+            MouseRight => "Mouse Right Button",
+            MouseMiddle => "Mouse Wheel Button",
+            MouseBack => "Mouse Back Button",
+            MouseForward => "Mouse Forward Button",
+            _ => $"Mouse Button {code}",
+        });
+        return string.Join(" + ", parts);
+    }
+
+    private static bool TryMouseButton(
+        nuint message,
+        uint mouseData,
+        out uint mouseCode,
+        out bool isDown,
+        out bool isUp)
+    {
+        isDown = message is LeftButtonDown or RightButtonDown or MiddleButtonDown or ExtraButtonDown;
+        isUp = message is LeftButtonUp or RightButtonUp or MiddleButtonUp or ExtraButtonUp;
+        mouseCode = message switch
+        {
+            LeftButtonDown or LeftButtonUp => MouseLeft,
+            RightButtonDown or RightButtonUp => MouseRight,
+            MiddleButtonDown or MiddleButtonUp => MouseMiddle,
+            ExtraButtonDown or ExtraButtonUp when (mouseData >> 16) == 1 => MouseBack,
+            ExtraButtonDown or ExtraButtonUp when (mouseData >> 16) == 2 => MouseForward,
+            _ => 0,
+        };
+        return mouseCode != 0;
+    }
+
+    private static bool IsBantzWindowAt(NativePoint point)
+    {
+        var window = WindowFromPoint(point);
+        if (window == nint.Zero)
+        {
+            return false;
+        }
+
+        _ = GetWindowThreadProcessId(window, out var processId);
+        return processId == (uint)Environment.ProcessId;
+    }
+
     private static uint LowestSetBit(uint value) => value & (uint)-(int)value;
     private static bool IsPressed(int virtualKey) => (GetAsyncKeyState(virtualKey) & 0x8000) != 0;
     private static bool IsModifier(uint virtualKey) => virtualKey is
@@ -363,6 +502,23 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
     {
         public readonly uint VirtualKey;
         public readonly uint ScanCode;
+        public readonly uint Flags;
+        public readonly uint Time;
+        public readonly nuint ExtraInfo;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct NativePoint
+    {
+        public readonly int X;
+        public readonly int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct LowLevelMouseInput
+    {
+        public readonly NativePoint Point;
+        public readonly uint MouseData;
         public readonly uint Flags;
         public readonly uint Time;
         public readonly nuint ExtraInfo;
@@ -399,6 +555,12 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
 
     [LibraryImport("user32.dll")]
     private static partial short GetAsyncKeyState(int virtualKey);
+
+    [LibraryImport("user32.dll")]
+    private static partial nint WindowFromPoint(NativePoint point);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetWindowThreadProcessId(nint window, out uint processId);
 
     [LibraryImport("xinput1_4.dll", EntryPoint = "XInputGetState")]
     private static partial uint XInputGetState(uint userIndex, out XInputState state);

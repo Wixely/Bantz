@@ -16,6 +16,7 @@ public enum InputDevice
 {
     Keyboard,
     Gamepad,
+    Mouse,
 }
 
 public enum TranscriptionRuntime
@@ -57,6 +58,7 @@ public sealed class InputBinding
 public sealed class AppSettings
 {
     public TranscriptionRuntime? Runtime { get; set; }
+    public bool AutoWrite { get; set; } = true;
     public bool AutoEnter { get; set; }
     public bool AlwaysOnTop { get; set; }
     public bool ButtonDelayEnabled { get; set; } = true;
