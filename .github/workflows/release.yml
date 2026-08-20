@@ -103,6 +103,7 @@ jobs:
           if ($files.Count -ne 8) { throw "Expected eight release files; found $($files.Count)." }
           $arguments = @(
             'release', 'create', $env:GITHUB_REF_NAME,
+            '--repo', $env:GITHUB_REPOSITORY,
             '--verify-tag', '--generate-notes',
             '--title', "Bantz $env:GITHUB_REF_NAME"
           )
