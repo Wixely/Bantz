@@ -19,7 +19,7 @@ $assetBase = "bantz-v$version-$rid"
 $standaloneName = if ($isWindowsPackage) { "$assetBase.exe" } else { $assetBase }
 $releaseRoot = Join-Path $repoRoot 'artifacts/release'
 $publishRoot = Join-Path $releaseRoot "publish-$rid"
-$stageRoot = Join-Path $releaseRoot $assetBase
+$stageRoot = Join-Path $releaseRoot "stage-$assetBase"
 
 foreach ($path in @($publishRoot, $stageRoot)) {
     if ((Test-Path $path) -and $path.StartsWith($releaseRoot, [StringComparison]::OrdinalIgnoreCase)) {
