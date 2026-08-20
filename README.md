@@ -2,9 +2,15 @@
 
 Bantz is a small, private hold-to-talk dictation app for Windows, with an experimental Linux x64 host. It records only while you hold its main button or a supported global hotkey, transcribes locally, and types the result into whichever text field you choose.
 
-## Screenshot
+## Screenshots
+
+**Main page**
 
 <img src="docs/screenshots/main.png" alt="Bantz main dictation window" width="420">
+
+**Settings page**
+
+<img src="docs/screenshots/settings.png" alt="Bantz settings page" width="420">
 
 ## How it works
 
