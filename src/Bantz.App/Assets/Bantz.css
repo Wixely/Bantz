@@ -113,6 +113,7 @@ footer span { color:#9aa5b7; }
 .config-tab.selected { border-color:#c9782d; background:#c9782d; color:#fff; }
 .config-body { flex:none; }
 .settings-panel,.bindings-panel,.diagnostic-grid { flex-shrink:0; background:#161b26; border:1px solid #2b3345; border-radius:16px; }
+.settings-panel,.diagnostic-grid { overflow:hidden; }
 .settings-panel { height:368px; display:flex; flex-direction:column; }
 .setting-row { height:41px; flex-shrink:0; padding:10px 15px; border-bottom:1px solid #2b3345; display:flex; align-items:center; gap:10px; transition:background 150ms ease; }
 .setting-row:hover { background:#19212e; }
