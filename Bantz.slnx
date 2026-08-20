@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bantz.Core/Bantz.Core.csproj" />
+    <Project Path="src/Bantz.App/Bantz.App.csproj" />
+    <Project Path="src/Bantz.Linux/Bantz.Linux.csproj" />
+    <Project Path="src/Bantz.Windows/Bantz.Windows.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bantz.Core.Tests/Bantz.Core.Tests.csproj" />
+  </Folder>
+</Solution>

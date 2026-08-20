@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: true
+
+jobs:
+  verify:
+    name: Verify version and quality
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.300
+      - name: Require tag to match project version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (dotnet msbuild src/Bantz.App/Bantz.App.csproj -getProperty:Version).Trim()
+          if (-not $version) { throw 'Could not read the project version.' }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag '$env:GITHUB_REF_NAME' does not match project version 'v$version'."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Run release gates
+        shell: pwsh
+        run: ./eng/Verify.ps1
+
+  package:
+    name: Package / ${{ matrix.name }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            platform: windows-x64
+            binary: bantz-v*-win-x64.exe
+            archive: bantz-v*-win-x64.zip
+          - name: Linux x64
+            os: ubuntu-latest
+            platform: linux-x64
+            binary: bantz-v*-linux-x64
+            archive: bantz-v*-linux-x64.tar.gz
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.300
+      - name: Publish and smoke test
+        shell: pwsh
+        run: ./eng/Package.ps1 -Platform '${{ matrix.platform }}'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: |
+            artifacts/release/${{ matrix.binary }}
+            artifacts/release/${{ matrix.binary }}.sha256
+            artifacts/release/${{ matrix.archive }}
+            artifacts/release/${{ matrix.archive }}.sha256
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    if: github.ref_type == 'tag'
+    needs: [verify, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: release-*
+          path: artifacts/download
+          merge-multiple: true
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          $files = Get-ChildItem artifacts/download -File |
+            Where-Object { $_.Name -like "bantz-v$env:VERSION-*" } |
+            Sort-Object Name
+          if ($files.Count -ne 8) { throw "Expected eight release files; found $($files.Count)." }
+          $arguments = @(
+            'release', 'create', $env:GITHUB_REF_NAME,
+            '--verify-tag', '--generate-notes',
+            '--title', "Bantz $env:GITHUB_REF_NAME"
+          )
+          if ($env:VERSION.StartsWith('0.')) { $arguments += '--prerelease' }
+          $arguments += $files.FullName
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed.' }

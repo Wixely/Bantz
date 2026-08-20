@@ -1,0 +1,3 @@
+[submodule "external/CupriFace"]
+	path = external/CupriFace
+	url = https://github.com/Wixely/CupriFace.git

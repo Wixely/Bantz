@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.vs/
+.idea/
+.vscode/*.user.json
+TestResults/
+artifacts/
+coverage/
+BantzData/
+*.bin
+*.pdb
+*.wav
+*.user

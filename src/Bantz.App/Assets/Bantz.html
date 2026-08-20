@@ -1,0 +1,189 @@
+<main class="app-shell">
+  <header>
+    <cupri-image class="brand-icon" src="Assets/BantzIcon.png" fit="contain" alt="Bantz microphone logo"></cupri-image>
+    <div class="brand-copy">
+      <h1>Bantz</h1>
+      <p>Private voice, straight to the cursor.</p>
+    </div>
+    <div class="header-main-actions" style="display:{{MainDisplay}}">
+      <div class="config-cog settings-open" role="button" aria-label="Open configuration">
+        <cupri-icon name="settings" size="28"></cupri-icon>
+      </div>
+    </div>
+  </header>
+
+  <section class="storage-page" style="display:{{StorageDisplay}}">
+    <div class="storage-card">
+      <span class="eyebrow">FIRST-RUN SETUP</span>
+      <h2>Where should Bantz keep its data?</h2>
+      <p>Settings, models, runtime files, and metadata all live together in one Bantz data folder.</p>
+      <div class="storage-choices">
+        <div class="storage-choice recommended">
+          <span class="choice-badge">RECOMMENDED</span>
+          <strong>Per-user folder</strong>
+          <span>Uses your operating system's private app-data location and keeps working when the app is updated or moved.</span>
+          <cupri-button class="storage-user">Use app data</cupri-button>
+        </div>
+        <div class="storage-choice">
+          <strong>Portable</strong>
+          <span>Creates a BantzData folder beside the executable, ideal for a self-contained or movable installation.</span>
+          <cupri-button class="storage-portable" variant="ghost">Use portable</cupri-button>
+        </div>
+      </div>
+      <div class="storage-note">{{StorageStatus}}</div>
+      <p class="privacy-copy">No model is bundled. Bantz downloads only the runtime and model you choose on the next step.</p>
+    </div>
+  </section>
+
+  <section class="onboarding-page" style="display:{{OnboardingDisplay}}">
+    <div class="onboarding-card">
+      <span class="eyebrow">FIRST-RUN SETUP</span>
+      <h2>How should Bantz run Whisper?</h2>
+      <p class="whisper-explainer">Whisper is an on-device speech-recognition engine that turns your voice into text.</p>
+      <p class="runtime-intro">Choose the runtime Bantz should download. You can change this later in Settings.</p>
+      <div class="runtime-choices">
+        <div class="runtime-choice recommended {{GpuRuntimeClass}}">
+          <span class="choice-badge">RECOMMENDED</span>
+          <strong>GPU (Vulkan)</strong>
+          <span>Faster on compatible graphics hardware. Downloads only the GPU runtime.</span>
+          <div class="runtime-pick-row"><div class="runtime-pick onboarding-auto {{GpuRuntimeClass}}" role="button" aria-pressed="{{GpuRuntimePressed}}">Prefer GPU</div></div>
+        </div>
+        <div class="runtime-choice {{CpuRuntimeClass}}">
+          <span class="choice-badge compatibility-badge">COMPATIBILITY</span>
+          <strong>CPU only</strong>
+          <span>Most predictable option; no GPU dependencies.</span>
+          <div class="runtime-pick-row"><div class="runtime-pick onboarding-cpu {{CpuRuntimeClass}}" role="button" aria-pressed="{{CpuRuntimePressed}}">Use CPU</div></div>
+        </div>
+      </div>
+      <div class="model-setup">
+        <div class="model-copy"><strong>English Base speech model</strong><span>{{ModelDownloadStatus}}</span></div>
+        <cupri-progress value="{{ModelDownloadPercent}}" max="100" aria-label="Speech model download progress"></cupri-progress>
+        <cupri-button class="model-download">{{ModelDownloadLabel}}</cupri-button>
+      </div>
+      <p class="privacy-copy">Whichever you choose, audio and transcription remain on this device.</p>
+    </div>
+  </section>
+
+  <section class="main-page" style="display:{{MainDisplay}}">
+    <section class="record-zone">
+      <div class="record {{StateClass}}" role="button" aria-label="Hold to record speech" data-ptt="main">
+        <div class="record-topline"><span class="privacy-dot"></span><span>ON-DEVICE DICTATION</span></div>
+        <div class="record-core">
+          <div class="wave-bars left-bars"><span></span><span></span><span></span></div>
+          <div class="mic-emblem"><div class="mic-vector" data-cupri-icon="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21H8v2h8v-2h-3v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" aria-hidden="true"></div></div>
+          <div class="wave-bars right-bars"><span></span><span></span><span></span></div>
+        </div>
+        <strong>{{RecordLabel}}</strong>
+        <span class="record-hint">{{RecordHint}}</span>
+      </div>
+      <p class="status" aria-live="polite">{{Status}}</p>
+    </section>
+
+    <section class="transcript-card">
+      <div class="card-heading"><span>Latest transcript</span><span class="local-badge">LOCAL</span></div>
+      <p>{{Transcript}}</p>
+    </section>
+
+    <section class="countdown-dock" style="display:{{CountdownDisplay}}" aria-live="assertive">
+      <div class="countdown-copy"><strong>Choose where to type</strong><span>Typing in {{Countdown}} seconds</span></div>
+      <cupri-progress value="{{CountdownPercent}}" max="100" aria-label="Countdown progress"></cupri-progress>
+      <span class="countdown-number">{{Countdown}}</span>
+      <cupri-button class="countdown-cancel" variant="ghost">Cancel</cupri-button>
+    </section>
+
+    <footer style="display:{{FooterDisplay}}">
+      <span>Keyboard and gamepad shortcuts are available anywhere.</span>
+    </footer>
+  </section>
+
+  <section class="settings-page" style="display:{{SettingsDisplay}}">
+    <div class="page-heading">
+      <div><span class="eyebrow">PREFERENCES</span><h2>Settings</h2></div>
+      <div class="settings-heading-actions">
+        <cupri-button class="diagnostics-open" variant="ghost">Diagnostics</cupri-button>
+        <div class="settings-back back-control" role="button" aria-label="Back to dictation">Back</div>
+      </div>
+    </div>
+
+    <section class="settings-panel">
+      <div class="setting-row runtime-row">
+        <div><strong>Whisper runtime</strong><span>Vulkan when available; loaded-runtime changes apply next launch.</span></div>
+        <div class="runtime-buttons" role="group" aria-label="Whisper runtime">
+          <div class="runtime-gpu runtime-option {{GpuRuntimeClass}}" role="button">GPU</div>
+          <div class="runtime-cpu runtime-option {{CpuRuntimeClass}}" role="button">CPU</div>
+        </div>
+      </div>
+      <div class="setting-row">
+        <div><strong>Press Enter afterwards</strong><span>Submit the destination field after typing.</span></div>
+        <div class="setting-control-slot"><cupri-switch checked="{{AutoEnter}}" aria-label="Press Enter after dictation"></cupri-switch></div>
+      </div>
+      <div class="setting-row">
+        <div><strong>Always on top</strong><span>Keep Bantz above other application windows.</span></div>
+        <div class="setting-control-slot"><cupri-switch checked="{{AlwaysOnTop}}" aria-label="Keep Bantz always on top"></cupri-switch></div>
+      </div>
+      <div class="setting-row delay-row">
+        <div><strong>Delay after button click</strong><span>Time to focus a destination after transcription.</span></div>
+        <div class="delay-controls">
+          <cupri-switch checked="{{ButtonDelayEnabled}}" aria-label="Enable button delay"></cupri-switch>
+          <cupri-number value="{{ButtonDelaySeconds}}" min="0" max="10" step="1" aria-label="Button delay seconds"></cupri-number>
+          <span class="seconds">seconds</span>
+        </div>
+      </div>
+      <div class="setting-row delay-row">
+        <div><strong>Delay after shortcut</strong><span>Applies to every keyboard and gamepad binding.</span></div>
+        <div class="delay-controls">
+          <cupri-switch checked="{{ShortcutDelayEnabled}}" aria-label="Enable shortcut delay"></cupri-switch>
+          <cupri-number value="{{ShortcutDelaySeconds}}" min="0" max="10" step="1" aria-label="Shortcut delay seconds"></cupri-number>
+          <span class="seconds">seconds</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="bindings-panel" style="height:{{BindingsPanelHeight}}px">
+      <div class="section-heading"><div><strong>Hold-to-talk inputs</strong><span>Map several keyboard chords or gamepad buttons to dictation.</span></div></div>
+      <div class="binding-empty" style="display:{{EmptyBindingsDisplay}}">
+        <cupri-icon name="info" size="18"></cupri-icon>
+        <div><strong>No inputs assigned</strong><span>Add a keyboard shortcut or gamepad button.</span></div>
+      </div>
+      <cupri-virtual class="binding-list" style="display:{{BindingListDisplay}}" role="list" height="74" item-height="50">
+        <div class="binding-row" role="listitem" data-repeat="BindingRows">
+          <span class="device-badge">{{Device}}</span><strong>{{Name}}</strong>
+          <cupri-button variant="ghost" data-remove-binding="{{Id}}">Remove</cupri-button>
+        </div>
+      </cupri-virtual>
+      <div class="capture-message" style="display:{{CaptureDisplay}}" aria-live="polite">{{CaptureState}}</div>
+      <div class="binding-actions">
+        <cupri-button class="add-binding">Add input</cupri-button>
+        <cupri-button class="cancel-capture" variant="ghost" style="display:{{CancelCaptureDisplay}}">Cancel</cupri-button>
+        <cupri-button class="undo-binding" variant="ghost" style="display:{{UndoDisplay}}">Undo</cupri-button>
+        <cupri-button class="restore-bindings" variant="ghost">Reset defaults</cupri-button>
+      </div>
+    </section>
+  </section>
+
+  <section class="diagnostics-page" style="display:{{DiagnosticsDisplay}}">
+    <div class="page-heading">
+      <div><span class="eyebrow">LOCAL ENGINE</span><h2>Whisper diagnostics</h2></div>
+      <cupri-button class="diagnostics-back" variant="ghost">Back</cupri-button>
+    </div>
+    <section class="diagnostic-hero">
+      <div class="diagnostic-state {{DiagnosticsStateClass}}"></div>
+      <div><strong>{{DiagnosticsStatus}}</strong><span>{{DiagnosticsSummary}}</span></div>
+    </section>
+    <section class="diagnostic-grid">
+      <div class="diagnostic-row"><span>Engine</span><strong>{{DiagnosticsEngine}}</strong></div>
+      <div class="diagnostic-row"><span>Managed binding</span><strong>{{DiagnosticsVersion}}</strong></div>
+      <div class="diagnostic-row"><span>Native runtime</span><strong>{{DiagnosticsRuntime}}</strong></div>
+      <div class="diagnostic-row"><span>Language</span><strong>{{DiagnosticsLanguage}}</strong></div>
+      <div class="diagnostic-row"><span>Model</span><strong>{{DiagnosticsModel}}</strong></div>
+      <div class="diagnostic-row"><span>Model size</span><strong>{{DiagnosticsModelSize}}</strong></div>
+      <div class="diagnostic-row path-row"><span>Model path</span><div class="model-path-open" role="button" aria-label="Open model folder"><strong>{{DiagnosticsModelPath}}</strong><span>OPEN FOLDER</span></div></div>
+      <div class="diagnostic-row"><span>Last transcription</span><strong>{{DiagnosticsLastRun}}</strong></div>
+    </section>
+    <div class="diagnostic-note">Audio stays on this device. Network access is used only to download the model when it is missing.</div>
+    <div class="diagnostic-actions">
+      <cupri-button class="diagnostics-refresh">Refresh</cupri-button>
+      <cupri-button class="diagnostics-back" variant="ghost">Done</cupri-button>
+    </div>
+  </section>
+</main>

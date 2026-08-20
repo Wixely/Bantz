@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Bantz: build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "Bantz.slnx", "-c", "Debug"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "Bantz: test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "Bantz.slnx", "-c", "Debug", "--no-build"],
+      "problemMatcher": "$msCompile",
+      "group": "test"
+    }
+  ]
+}
