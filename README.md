@@ -19,10 +19,11 @@ Bantz is a small, private hold-to-talk dictation app for Windows, with an experi
 - On Windows, hold a configured keyboard chord, XInput gamepad button, or mouse button anywhere outside Bantz, speak, then release. The default is `Ctrl+Shift+Space` and types immediately.
 - Recordings shorter than 1.5 seconds are discarded as accidental presses and never sent to Whisper.
 - On Windows, open **Settings** to add several keyboard, gamepad, or mouse inputs, remove them, undo the latest binding change, or restore the default. Mouse support includes left, right, wheel-click, Back, Forward, and modifier-plus-mouse chords.
+- Open the **Keybinds > Advanced** modal to use `Ctrl+T` (or assign another dedicated input) to enable or disable every hold-to-talk shortcut. PTT shortcuts start disabled because Bantz consumes assigned global inputs while listening for them; the toggle remains active so mouse-wheel, Back, Forward, and other temporary bindings can quickly be restored. Remove the toggle binding in Advanced to disable it too.
 - Set button and shortcut delays independently from 0 to 10 seconds. Button delay starts enabled at five seconds; shortcut delay starts disabled at zero.
 - Enable **Press Enter afterwards** to send Enter after the transcript.
 - Enable **Always on top** to keep Bantz above other windows.
-- On Windows, closing the window keeps Bantz available in the notification area. Left-click its tray icon to restore it, or right-click and choose **Close Bantz** to exit.
+- On Windows, closing the window keeps Bantz available in the notification area. Left-click its tray icon to restore it, or right-click and choose **Close Bantz** to exit. The Settings page can open Windows taskbar settings so you can keep Bantz outside the overflow menu.
 - On first run, choose where all Bantz data lives: a per-user app-data folder, or a portable `BantzData` folder beside the executable.
 - Then choose **GPU (Vulkan)** or **CPU only**. Bantz downloads only the selected pinned Whisper.net runtime, verifies its SHA-256 hash, and extracts only the native files for the current platform. The choice remains editable in Settings; changing to a runtime that is not installed returns to setup on the next launch.
 - If Bantz itself still has focus when the button countdown ends, it keeps the transcript visible instead of typing into itself.

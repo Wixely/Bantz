@@ -37,6 +37,10 @@ if (hasRuntimeOverride)
 
 WhisperTranscriptionEngine.ConfigureRuntime(selectedRuntime, runtimeManager);
 var model = new BantzModel(settings);
+if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
+{
+    model.ShortcutsEnabled = false;
+}
 using var recorder = new LinuxAudioRecorder();
 using var engine = new WhisperTranscriptionEngine(() => modelOverride ?? storage.ModelPath);
 if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
@@ -68,6 +72,10 @@ var requestedPage = ArgumentValue(args, "--page");
 if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
+    model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&
+        args.Contains("--advanced", StringComparer.OrdinalIgnoreCase);
+    model.ShortcutInfoExpanded = model.AdvancedBindingsExpanded &&
+        args.Contains("--shortcut-info", StringComparer.OrdinalIgnoreCase);
     if (requestedPage == "diagnostics")
     {
         app.RefreshDiagnostics();

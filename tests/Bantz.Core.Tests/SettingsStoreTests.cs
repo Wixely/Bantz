@@ -17,6 +17,8 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.True(settings.AutoWrite);
         Assert.True(settings.ButtonDelayEnabled);
         Assert.Equal(5, settings.ButtonDelaySeconds);
+        Assert.False(settings.ShortcutsEnabled);
+        Assert.Equal("Ctrl + T", settings.ShortcutToggleBinding?.DisplayName);
     }
 
     [Fact]
@@ -41,6 +43,7 @@ public sealed class SettingsStoreTests : IDisposable
         var settings = new SettingsStore(SettingsPath).Load();
 
         Assert.True(settings.AutoWrite);
+        Assert.False(settings.ShortcutsEnabled);
     }
 
     [Fact]
@@ -106,6 +109,53 @@ public sealed class SettingsStoreTests : IDisposable
         Assert.Equal(InputDevice.Mouse, binding.Device);
         Assert.Equal(3u, binding.Code);
         Assert.Equal("Mouse Wheel Button", binding.DisplayName);
+    }
+
+    [Fact]
+    public void ShortcutToggleBindingAndEnabledStateSurviveRestart()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.ShortcutsEnabled = false;
+        settings.ShortcutToggleBinding = new InputBinding
+        {
+            Device = InputDevice.Keyboard,
+            Code = 0x7B,
+            DisplayName = "F12",
+        };
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.False(reloaded.ShortcutsEnabled);
+        Assert.Equal("F12", reloaded.ShortcutToggleBinding?.DisplayName);
+    }
+
+    [Fact]
+    public void RemovedShortcutToggleBindingStaysRemoved()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.ShortcutToggleBinding = null;
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.Null(reloaded.ShortcutToggleBinding);
+    }
+
+    [Fact]
+    public void ShortcutToggleBindingTakesPriorityOverDuplicatePttBinding()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.ShortcutToggleBinding = InputBinding.DefaultKeyboard();
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.Empty(reloaded.Bindings);
+        Assert.NotNull(reloaded.ShortcutToggleBinding);
     }
 
     public void Dispose()
