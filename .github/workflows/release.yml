@@ -107,7 +107,6 @@ jobs:
             '--verify-tag', '--generate-notes',
             '--title', "Bantz $env:GITHUB_REF_NAME"
           )
-          if ($env:VERSION.StartsWith('0.')) { $arguments += '--prerelease' }
           $arguments += $files.FullName
           & gh @arguments
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed.' }

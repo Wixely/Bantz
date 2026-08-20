@@ -115,8 +115,8 @@ footer span { color:#9aa5b7; }
 .settings-panel,.bindings-panel,.diagnostic-grid { flex-shrink:0; background:#161b26; border:1px solid #2b3345; border-radius:16px; }
 .settings-panel,.diagnostic-grid { overflow:hidden; }
 .settings-panel { height:368px; display:flex; flex-direction:column; }
-.setting-row { height:41px; flex-shrink:0; padding:10px 15px; border-bottom:1px solid #2b3345; display:flex; align-items:center; gap:10px; transition:background 150ms ease; }
-.setting-row:hover { background:#19212e; }
+.setting-row { height:41px; flex-shrink:0; padding:10px 15px; border-bottom:1px solid #2b3345; display:flex; align-items:center; gap:10px; transition:background 240ms ease; }
+.setting-row:hover { background:#171c27; }
 .setting-row:last-child { border-bottom:0; }
 .setting-row > div:first-child { flex:1; display:flex; flex-direction:column; gap:3px; }
 .setting-row strong,.section-heading strong { color:#f6f2ea; font-size:13px; }
@@ -155,8 +155,8 @@ footer span { color:#9aa5b7; }
 .diagnostic-hero .cupri-button { padding:7px 11px; border-radius:8px; font-size:11px; }
 .diagnostic-hero strong { color:#f6f2ea; font-size:14px; }.diagnostic-hero span { color:#9fb5aa; font-size:11px; }
 .diagnostic-grid { height:320px; display:flex; flex-direction:column; }
-.diagnostic-row { height:18px; flex-shrink:0; padding:10px 14px; border-bottom:1px solid #2b3345; display:flex; justify-content:space-between; align-items:center; gap:16px; transition:background 150ms ease; }
-.diagnostic-row:hover { background:#1a2230; }
+.diagnostic-row { height:18px; flex-shrink:0; padding:10px 14px; border-bottom:1px solid #2b3345; display:flex; justify-content:space-between; align-items:center; gap:16px; transition:background 240ms ease; }
+.diagnostic-row:hover { background:#171c27; }
 .diagnostic-row:last-child { border-bottom:0; }
 .diagnostic-row span { color:#9aa5b7; font-size:11px; }.diagnostic-row strong { color:#e8edf5; text-align:right; font-size:11px; }
 .path-row { height:22px; }.path-row strong { max-width:300px; font-size:10px; }
