@@ -69,7 +69,8 @@ using var workflow = new DictationWorkflow(
     () => model.AutoEnter,
     model.DelayFor,
     shouldAutomaticallyWrite: () => model.AutoWrite);
-var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage);
+var initialWindowSize = WindowsDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
+var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, initialWindowSize);
 if (!storage.IsSelected)
 {
     model.Page = "storage";

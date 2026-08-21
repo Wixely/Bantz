@@ -20,6 +20,7 @@ public sealed class BantzApp : CupriApp
     private readonly AppStorage _storage;
     private readonly byte[] _enabledIcon;
     private readonly byte[] _disabledIcon;
+    private readonly InitialWindowSize _initialWindowSize;
     private List<InputBinding>? _bindingUndo;
     private BindingCapturePurpose _bindingCapturePurpose;
     private bool _modelDownloadInProgress;
@@ -32,7 +33,8 @@ public sealed class BantzApp : CupriApp
         SettingsStore settingsStore,
         WhisperTranscriptionEngine engine,
         WhisperRuntimeManager runtimeManager,
-        AppStorage storage)
+        AppStorage storage,
+        InitialWindowSize? initialWindowSize = null)
     {
         _workflow = workflow;
         _model = model;
@@ -40,6 +42,9 @@ public sealed class BantzApp : CupriApp
         _engine = engine;
         _runtimeManager = runtimeManager;
         _storage = storage;
+        _initialWindowSize = initialWindowSize is { Width: > 0, Height: > 0 } size
+            ? size
+            : PreferredWindowSize;
         _enabledIcon = EmbeddedAsset("Assets/BantzIcon.png").ReadBytes();
         _disabledIcon = ShortcutStateIcon.CreateDisabled(_enabledIcon);
         _iconShortcutsEnabled = model.ShortcutsEnabled;
@@ -55,8 +60,9 @@ public sealed class BantzApp : CupriApp
     public event Action? ShortcutIconChanged;
 
     public override string Title => "Bantz";
-    public override int Width => 1170;
-    public override int Height => 1300;
+    public static InitialWindowSize PreferredWindowSize { get; } = new(1170, 1300);
+    public override int Width => _initialWindowSize.Width;
+    public override int Height => _initialWindowSize.Height;
     public override SKColor Background => new(0x0d, 0x10, 0x17);
     public override bool DarkWindowChrome => true;
     public override bool TopMost => _model.AlwaysOnTop;
