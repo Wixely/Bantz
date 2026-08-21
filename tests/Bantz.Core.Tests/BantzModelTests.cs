@@ -88,4 +88,16 @@ public sealed class BantzModelTests
         Assert.Equal("block", model.ShortcutInfoDisplay);
         Assert.Equal("Hide explanation", model.ShortcutInfoLabel);
     }
+
+    [Fact]
+    public void RecordingNotificationIsHiddenUntilRecordingStarts()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+
+        Assert.Equal("none", model.RecordingNotificationDisplay);
+
+        model.RecordingNotificationDisplay = "flex";
+
+        Assert.Equal("flex", model.RecordingNotificationDisplay);
+    }
 }

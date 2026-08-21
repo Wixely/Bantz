@@ -41,7 +41,8 @@ if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
 {
     model.ShortcutsEnabled = false;
 }
-using var recorder = new LinuxAudioRecorder();
+var signalAnalyzer = new AudioSignalAnalyzer();
+using var recorder = new LinuxAudioRecorder(signalAnalyzer);
 using var engine = new WhisperTranscriptionEngine(() => modelOverride ?? storage.ModelPath);
 if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 {
@@ -59,7 +60,7 @@ using var workflow = new DictationWorkflow(
     model.DelayFor,
     shouldAutomaticallyWrite: () => model.AutoWrite);
 var initialWindowSize = LinuxDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
-var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, initialWindowSize);
+var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, signalAnalyzer, initialWindowSize);
 if (!storage.IsSelected)
 {
     model.Page = "storage";

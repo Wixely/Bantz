@@ -5,11 +5,12 @@ using Bantz.Core;
 
 namespace Bantz.Platform.Linux;
 
-public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
+public sealed partial class LinuxAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : IAudioRecorder, IDisposable
 {
     private readonly object _sync = new();
     private Process? _process;
-    private string? _recordingPath;
+    private MemoryStream? _pcm;
+    private Task? _captureTask;
     private bool _disposed;
 
     public ValueTask StartAsync(CancellationToken cancellationToken = default)
@@ -24,15 +25,13 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
                 throw new InvalidOperationException("The microphone is already recording.");
             }
 
-            _recordingPath = Path.Combine(
-                Path.GetTempPath(),
-                $"bantz-{Environment.ProcessId}-{Guid.NewGuid():N}.wav");
             var start = new ProcessStartInfo
             {
                 FileName = "arecord",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardError = true,
+                RedirectStandardOutput = true,
             };
             start.ArgumentList.Add("-q");
             start.ArgumentList.Add("-f");
@@ -42,17 +41,19 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
             start.ArgumentList.Add("-c");
             start.ArgumentList.Add("1");
             start.ArgumentList.Add("-t");
-            start.ArgumentList.Add("wav");
-            start.ArgumentList.Add(_recordingPath);
+            start.ArgumentList.Add("raw");
 
             try
             {
                 _process = Process.Start(start)
                     ?? throw new InvalidOperationException("arecord did not start.");
+                _pcm = new MemoryStream();
+                signalAnalyzer.Reset();
+                _captureTask = CaptureAudioAsync(_process.StandardOutput.BaseStream, _pcm);
             }
             catch (Win32Exception exception)
             {
-                DeleteRecording();
+                CleanupCapture();
                 throw new InvalidOperationException(
                     "Bantz needs the ALSA 'arecord' command to record on Linux. Install alsa-utils.",
                     exception);
@@ -65,11 +66,11 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
     public async ValueTask<Stream> StopAsync(CancellationToken cancellationToken = default)
     {
         Process process;
-        string path;
+        Task captureTask;
         lock (_sync)
         {
             process = _process ?? throw new InvalidOperationException("The microphone is not recording.");
-            path = _recordingPath ?? throw new InvalidOperationException("The recording session is invalid.");
+            captureTask = _captureTask ?? throw new InvalidOperationException("The recording session is invalid.");
         }
 
         try
@@ -82,22 +83,21 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
             using var stopTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             stopTimeout.CancelAfter(TimeSpan.FromSeconds(5));
             await process.WaitForExitAsync(stopTimeout.Token).ConfigureAwait(false);
-            if (!File.Exists(path))
+            await captureTask.WaitAsync(stopTimeout.Token).ConfigureAwait(false);
+            var bytes = _pcm?.ToArray() ?? [];
+            if (bytes.Length == 0)
             {
                 var error = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
                 throw new InvalidOperationException($"arecord did not produce audio. {error}".Trim());
             }
 
-            var bytes = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
-            return new MemoryStream(bytes, writable: false);
+            return PcmWave.CreateStream(bytes);
         }
         finally
         {
             lock (_sync)
             {
-                process.Dispose();
-                _process = null;
-                DeleteRecording();
+                CleanupCapture();
             }
         }
     }
@@ -120,21 +120,51 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
                 }
             }
 
-            _process?.Dispose();
-            _process = null;
-            DeleteRecording();
+            try
+            {
+                _captureTask?.GetAwaiter().GetResult();
+            }
+            catch (Exception exception) when (exception is IOException or ObjectDisposedException)
+            {
+                // Shutdown still owns and releases the process and capture buffer.
+            }
+
+            CleanupCapture();
             _disposed = true;
         }
     }
 
-    private void DeleteRecording()
+    private async Task CaptureAudioAsync(Stream source, Stream destination)
     {
-        if (_recordingPath is { } path && File.Exists(path))
+        var buffer = new byte[1601];
+        var carry = 0;
+        while (true)
         {
-            File.Delete(path);
-        }
+            var bytesRead = await source.ReadAsync(buffer.AsMemory(carry, 1600)).ConfigureAwait(false);
+            if (bytesRead == 0)
+            {
+                return;
+            }
 
-        _recordingPath = null;
+            await destination.WriteAsync(buffer.AsMemory(carry, bytesRead)).ConfigureAwait(false);
+            var available = carry + bytesRead;
+            var analysisBytes = available - (available % sizeof(short));
+            signalAnalyzer.AnalyzePcm16(buffer.AsSpan(0, analysisBytes));
+            carry = available - analysisBytes;
+            if (carry != 0)
+            {
+                buffer[0] = buffer[analysisBytes];
+            }
+        }
+    }
+
+    private void CleanupCapture()
+    {
+        _process?.Dispose();
+        _process = null;
+        _pcm?.Dispose();
+        _pcm = null;
+        _captureTask = null;
     }
 
     [LibraryImport("libc", EntryPoint = "kill", SetLastError = true)]

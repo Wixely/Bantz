@@ -20,11 +20,13 @@ public sealed class BantzApp : CupriApp
     private readonly AppStorage _storage;
     private readonly byte[] _enabledIcon;
     private readonly byte[] _disabledIcon;
+    private readonly IReadOnlyList<byte[]> _recordingIconFrames;
     private readonly InitialWindowSize _initialWindowSize;
     private List<InputBinding>? _bindingUndo;
     private BindingCapturePurpose _bindingCapturePurpose;
     private bool _modelDownloadInProgress;
     private bool _iconShortcutsEnabled;
+    private bool _isRecording;
     private string _latestTranscript = "";
 
     public BantzApp(
@@ -34,6 +36,7 @@ public sealed class BantzApp : CupriApp
         WhisperTranscriptionEngine engine,
         WhisperRuntimeManager runtimeManager,
         AppStorage storage,
+        AudioSignalAnalyzer signalAnalyzer,
         InitialWindowSize? initialWindowSize = null)
     {
         _workflow = workflow;
@@ -47,8 +50,10 @@ public sealed class BantzApp : CupriApp
             : PreferredWindowSize;
         _enabledIcon = EmbeddedAsset("Assets/BantzIcon.png").ReadBytes();
         _disabledIcon = ShortcutStateIcon.CreateDisabled(_enabledIcon);
+        _recordingIconFrames = RecordingStateIcon.CreateFrames(_enabledIcon);
         _iconShortcutsEnabled = model.ShortcutsEnabled;
         _workflow.SnapshotChanged += ApplySnapshot;
+        signalAnalyzer.FrameAnalyzed += ApplyAudioSignal;
         _model.SettingsChanged += SaveSettings;
         _model.AdvancedBindingsVisibilityChanged += HandleAdvancedBindingsVisibilityChanged;
         UpdateModelSetup();
@@ -58,6 +63,7 @@ public sealed class BantzApp : CupriApp
     public Func<bool>? BeginBindingCapture { get; set; }
     public Action? CancelBindingCapture { get; set; }
     public event Action? ShortcutIconChanged;
+    public event Action<bool>? RecordingStateChanged;
 
     public override string Title => "Bantz";
     public static InitialWindowSize PreferredWindowSize { get; } = new(1170, 1300);
@@ -68,6 +74,7 @@ public sealed class BantzApp : CupriApp
     public override bool TopMost => _model.AlwaysOnTop;
     public override bool CloseToTray => true;
     public override byte[] Icon => _model.ShortcutsEnabled ? _enabledIcon : _disabledIcon;
+    public IReadOnlyList<byte[]> RecordingIconFrames => _recordingIconFrames;
     public override object Model => _model;
     public override double RefreshIntervalSeconds => 0.1;
     protected override CupriSource MarkupSource => Assets.Bantz.Html;
@@ -532,6 +539,7 @@ public sealed class BantzApp : CupriApp
 
     private void ApplySnapshot(DictationSnapshot snapshot)
     {
+        var isRecording = snapshot.State == DictationState.Recording;
         _model.Status = snapshot.Status;
         if (snapshot.Transcript.Length > 0)
         {
@@ -547,8 +555,16 @@ public sealed class BantzApp : CupriApp
         _model.CountdownPercent = snapshot.CountdownTotalSeconds > 0
             ? snapshot.CountdownSeconds * 100 / snapshot.CountdownTotalSeconds
             : 0;
-        _model.RecordLabel = snapshot.State == DictationState.Recording ? "LISTENING" : "HOLD TO TALK";
-        _model.RecordHint = snapshot.State == DictationState.Recording ? "Release when you’re done" : "Release to transcribe";
+        _model.RecordLabel = isRecording ? "LISTENING" : "HOLD TO TALK";
+        _model.RecordHint = isRecording ? "Release when you’re done" : "Release to transcribe";
+        _model.RecordingNotificationDisplay = isRecording ? "flex" : "none";
+        if (!isRecording)
+        {
+            _model.RecordingBarOneScale = "1.00";
+            _model.RecordingBarTwoScale = "1.00";
+            _model.RecordingBarThreeScale = "1.00";
+            _model.RecordingBarFourScale = "1.00";
+        }
         _model.StateClass = snapshot.State switch
         {
             DictationState.Recording => "recording",
@@ -557,7 +573,24 @@ public sealed class BantzApp : CupriApp
             DictationState.Error => "error",
             _ => "ready",
         };
+
+        if (_isRecording != isRecording)
+        {
+            _isRecording = isRecording;
+            RecordingStateChanged?.Invoke(isRecording);
+        }
     }
+
+    private void ApplyAudioSignal(AudioSignalFrame frame)
+    {
+        _model.RecordingBarOneScale = Scale(frame.FirstBar);
+        _model.RecordingBarTwoScale = Scale(frame.SecondBar);
+        _model.RecordingBarThreeScale = Scale(frame.ThirdBar);
+        _model.RecordingBarFourScale = Scale(frame.FourthBar);
+    }
+
+    private static string Scale(float value) =>
+        value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 [CupriBindable]
@@ -623,6 +656,11 @@ public sealed partial class BantzModel
     public int CountdownPercent { get; set; }
     public string RecordLabel { get; set; } = "HOLD TO TALK";
     public string RecordHint { get; set; } = "Release to transcribe";
+    public string RecordingNotificationDisplay { get; set; } = "none";
+    public string RecordingBarOneScale { get; set; } = "1.00";
+    public string RecordingBarTwoScale { get; set; } = "1.00";
+    public string RecordingBarThreeScale { get; set; } = "1.00";
+    public string RecordingBarFourScale { get; set; } = "1.00";
     public string StateClass { get; set; } = "ready";
     public string RecordShortcutClass => ShortcutsEnabled ? "" : "shortcuts-disabled";
     public string CaptureState { get; set; } = "Add as many inputs as you like.";

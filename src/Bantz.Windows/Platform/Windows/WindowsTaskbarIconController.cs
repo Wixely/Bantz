@@ -11,12 +11,79 @@ public sealed partial class WindowsTaskbarIconController : IDisposable
     private const uint GetWindowOwner = 4;
     private const uint NotifyIconModify = 1;
     private const uint NotifyIconFlagIcon = 0x00000002;
+    private const uint NotifyIconFlagTip = 0x00000004;
+    private const uint SendMessageAbortIfHung = 0x0002;
     private const uint TrayIconId = 1;
 
+    private readonly object _sync = new();
     private nint _largeIcon;
     private nint _smallIcon;
+    private Timer? _animationTimer;
+    private IReadOnlyList<byte[]>? _animationFrames;
+    private int _animationFrame;
+    private bool _disposed;
 
-    public void Update(byte[] pngBytes)
+    public void SetIdleIcon(byte[] pngBytes)
+    {
+        lock (_sync)
+        {
+            if (_disposed || _animationTimer is not null)
+            {
+                return;
+            }
+
+            Update(pngBytes, "Bantz");
+        }
+    }
+
+    public void StartRecording(IReadOnlyList<byte[]> frames)
+    {
+        ArgumentOutOfRangeException.ThrowIfZero(frames.Count);
+        lock (_sync)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _animationTimer?.Dispose();
+            _animationFrames = frames;
+            _animationFrame = 0;
+            Update(frames[0], "Bantz is recording");
+            _animationTimer = new Timer(AdvanceRecordingFrame, null, 150, 150);
+        }
+    }
+
+    public void StopRecording(byte[] idleIcon)
+    {
+        Timer? timer;
+        lock (_sync)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            timer = _animationTimer;
+            _animationTimer = null;
+            _animationFrames = null;
+            Update(idleIcon, "Bantz");
+        }
+
+        timer?.Dispose();
+    }
+
+    private void AdvanceRecordingFrame(object? state)
+    {
+        lock (_sync)
+        {
+            if (_disposed || _animationTimer is null || _animationFrames is not { Count: > 0 } frames)
+            {
+                return;
+            }
+
+            _animationFrame = (_animationFrame + 1) % frames.Count;
+            Update(frames[_animationFrame], "Bantz is recording");
+        }
+    }
+
+    private void Update(byte[] pngBytes, string tooltip)
     {
         var window = FindApplicationWindow();
         if (window == 0)
@@ -47,16 +114,16 @@ public sealed partial class WindowsTaskbarIconController : IDisposable
             return;
         }
 
-        _ = SendMessageW(window, WindowIconMessage, BigIcon, largeIcon);
-        _ = SendMessageW(window, WindowIconMessage, SmallIcon, smallIcon);
+        _ = SendMessageTimeoutW(window, WindowIconMessage, BigIcon, largeIcon, SendMessageAbortIfHung, 250, out _);
+        _ = SendMessageTimeoutW(window, WindowIconMessage, SmallIcon, smallIcon, SendMessageAbortIfHung, 250, out _);
         var trayIconData = new NotifyIconData
         {
             Size = (uint)Marshal.SizeOf<NotifyIconData>(),
             Window = window,
             Id = TrayIconId,
-            Flags = NotifyIconFlagIcon,
+            Flags = NotifyIconFlagIcon | NotifyIconFlagTip,
             Icon = smallIcon,
-            Tip = string.Empty,
+            Tip = tooltip,
             Info = string.Empty,
             InfoTitle = string.Empty,
         };
@@ -68,7 +135,20 @@ public sealed partial class WindowsTaskbarIconController : IDisposable
 
     public void Dispose()
     {
-        DestroyCurrentIcons();
+        lock (_sync)
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+            _animationTimer?.Dispose();
+            _animationTimer = null;
+            _animationFrames = null;
+            DestroyCurrentIcons();
+        }
+
         GC.SuppressFinalize(this);
     }
 
@@ -79,7 +159,8 @@ public sealed partial class WindowsTaskbarIconController : IDisposable
         EnumWindowProcedure procedure = (window, parameter) =>
         {
             _ = GetWindowThreadProcessId(window, out var candidateProcessId);
-            if (candidateProcessId != processId || !IsWindowVisible(window) || GetWindow(window, GetWindowOwner) != 0)
+            // A close-to-tray window is intentionally hidden but still owns the notification icon.
+            if (candidateProcessId != processId || GetWindow(window, GetWindowOwner) != 0)
             {
                 return true;
             }
@@ -143,11 +224,14 @@ public sealed partial class WindowsTaskbarIconController : IDisposable
     private static partial uint GetWindowThreadProcessId(nint window, out uint processId);
 
     [LibraryImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool IsWindowVisible(nint window);
-
-    [LibraryImport("user32.dll")]
-    private static partial nint SendMessageW(nint window, uint message, nuint wParam, nint lParam);
+    private static partial nint SendMessageTimeoutW(
+        nint window,
+        uint message,
+        nuint wParam,
+        nint lParam,
+        uint flags,
+        uint timeoutMilliseconds,
+        out nuint result);
 
     [LibraryImport("user32.dll")]
     private static partial nint CreateIconFromResourceEx(
