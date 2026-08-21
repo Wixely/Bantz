@@ -186,6 +186,53 @@ public sealed class DictationWorkflowTests
     }
 
     [Fact]
+    public async Task SilentRecordingIsDiscardedBeforeTranscription()
+    {
+        var engine = new EngineFake("must not run");
+        var summary = new AudioSignalSummary(TimeSpan.FromSeconds(2), TimeSpan.Zero, 0);
+        using var workflow = new DictationWorkflow(
+            new RecorderFake(),
+            engine,
+            new InjectorFake(),
+            new DelayFake(),
+            () => false,
+            timeProvider: new RecordingTimeProvider(),
+            audioSignalSummary: () => summary);
+
+        await workflow.StartAsync(ActivationKind.Hotkey);
+        await workflow.StopAsync(ActivationKind.Hotkey);
+
+        Assert.Equal(0, engine.CallCount);
+        Assert.Equal(DictationState.Ready, workflow.Snapshot.State);
+        Assert.Contains("No sound", workflow.Snapshot.Status, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MeaningfulRecordingContinuesToTranscription()
+    {
+        var engine = new EngineFake("heard clearly");
+        var summary = new AudioSignalSummary(
+            TimeSpan.FromSeconds(2),
+            AudioSignalAnalyzer.MinimumMeaningfulActivity,
+            AudioSignalAnalyzer.MeaningfulPeakThreshold);
+        using var workflow = new DictationWorkflow(
+            new RecorderFake(),
+            engine,
+            new InjectorFake(),
+            new DelayFake(),
+            () => false,
+            timeProvider: new RecordingTimeProvider(),
+            shouldAutomaticallyWrite: () => false,
+            audioSignalSummary: () => summary);
+
+        await workflow.StartAsync(ActivationKind.Button);
+        await workflow.StopAsync(ActivationKind.Button);
+
+        Assert.Equal(1, engine.CallCount);
+        Assert.Equal("heard clearly", workflow.Snapshot.Transcript);
+    }
+
+    [Fact]
     public async Task CountdownCanBeCancelledWithoutInjectingText()
     {
         var delay = new BlockingDelayFake();

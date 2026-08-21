@@ -58,7 +58,8 @@ using var workflow = new DictationWorkflow(
     new SystemAsyncDelay(),
     () => model.AutoEnter,
     model.DelayFor,
-    shouldAutomaticallyWrite: () => model.AutoWrite);
+    shouldAutomaticallyWrite: () => model.AutoWrite,
+    audioSignalSummary: () => signalAnalyzer.Summary);
 var initialWindowSize = LinuxDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
 var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, signalAnalyzer, initialWindowSize);
 if (!storage.IsSelected)

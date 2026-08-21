@@ -20,6 +20,7 @@ public sealed class AudioSignalAnalyzerTests
         Assert.Equal(0.12f, frame.Value.FirstBar);
         Assert.Equal(TimeSpan.FromSeconds(1), analyzer.Summary.Duration);
         Assert.Equal(TimeSpan.Zero, analyzer.Summary.ActiveDuration);
+        Assert.False(AudioSignalAnalyzer.HasMeaningfulSound(analyzer.Summary));
     }
 
     [Fact]
@@ -37,6 +38,7 @@ public sealed class AudioSignalAnalyzerTests
 
         Assert.True(analyzer.Summary.Peak > 0.3f);
         Assert.Equal(TimeSpan.FromSeconds(1), analyzer.Summary.ActiveDuration);
+        Assert.True(AudioSignalAnalyzer.HasMeaningfulSound(analyzer.Summary));
 
         analyzer.Reset();
 

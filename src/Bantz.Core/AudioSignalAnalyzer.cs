@@ -18,6 +18,8 @@ public readonly record struct AudioSignalSummary(
 public sealed class AudioSignalAnalyzer
 {
     public const float ActiveRmsThreshold = 0.012f;
+    public const float MeaningfulPeakThreshold = 0.025f;
+    public static readonly TimeSpan MinimumMeaningfulActivity = TimeSpan.FromMilliseconds(150);
     private const int BarCount = 4;
     private readonly int _sampleRate;
     private readonly int _channels;
@@ -120,6 +122,11 @@ public sealed class AudioSignalAnalyzer
 
         FrameAnalyzed?.Invoke(frame);
     }
+
+    public static bool HasMeaningfulSound(AudioSignalSummary summary) =>
+        summary.Duration > TimeSpan.Zero &&
+        summary.ActiveDuration >= MinimumMeaningfulActivity &&
+        summary.Peak >= MeaningfulPeakThreshold;
 
     private static float ToVisualLevel(float rms)
     {
