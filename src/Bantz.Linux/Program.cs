@@ -70,7 +70,7 @@ else if (settings.Runtime is null || !engine.IsModelAvailable || !runtimeManager
 }
 
 var requestedPage = ArgumentValue(args, "--page");
-if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
     model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&

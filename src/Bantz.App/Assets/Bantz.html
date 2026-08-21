@@ -112,6 +112,7 @@
       <div class="config-tab config-tab-settings {{SettingsTabClass}}" role="tab" aria-selected="{{SettingsTabSelected}}">Settings</div>
       <div class="config-tab config-tab-keybinds {{KeybindsTabClass}}" role="tab" aria-selected="{{KeybindsTabSelected}}">Keybinds</div>
       <div class="config-tab config-tab-diagnostics {{DiagnosticsTabClass}}" role="tab" aria-selected="{{DiagnosticsTabSelected}}">Diagnostics</div>
+      <div class="config-tab config-tab-about {{AboutTabClass}}" role="tab" aria-selected="{{AboutTabSelected}}">About</div>
     </nav>
 
     <section class="settings-panel config-body" style="display:{{SettingsTabDisplay}}">
@@ -224,5 +225,19 @@
       </section>
       <div class="diagnostic-note">Audio stays on this device. Network access is used only to download the model when it is missing.</div>
     </div>
+
+    <section class="about-body config-body" style="display:{{AboutTabDisplay}}">
+      <div class="about-card">
+        <cupri-image class="about-icon" src="Assets/BantzIcon.png" fit="contain" alt="Bantz microphone logo"></cupri-image>
+        <span class="eyebrow">ABOUT BANTZ</span>
+        <h3>Private dictation, built in the open.</h3>
+        <p>Bantz turns speech into text locally on your device. Explore the source, report an issue, or contribute on GitHub.</p>
+        <a class="about-github-link" href="https://github.com/Wixely/Bantz">
+          <span><strong>View Bantz on GitHub</strong><small>Source code, releases, and issue tracking</small></span>
+          <cupri-icon name="external" size="16"></cupri-icon>
+        </a>
+        <div class="about-meta"><span>Version {{AppVersion}}</span><span>MIT licensed</span></div>
+      </div>
+    </section>
   </section>
 </main>

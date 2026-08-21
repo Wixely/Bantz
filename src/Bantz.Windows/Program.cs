@@ -84,7 +84,7 @@ var requestedPage = args
     .SkipWhile(value => !string.Equals(value, "--page", StringComparison.OrdinalIgnoreCase))
     .Skip(1)
     .FirstOrDefault();
-if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
     model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&

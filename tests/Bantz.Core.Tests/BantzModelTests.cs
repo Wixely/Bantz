@@ -7,16 +7,18 @@ namespace Bantz.Core.Tests;
 public sealed class BantzModelTests
 {
     [Theory]
-    [InlineData("settings", "flex", "selected", "", "")]
-    [InlineData("keybinds", "flex", "", "selected", "")]
-    [InlineData("diagnostics", "flex", "", "", "selected")]
-    [InlineData("main", "none", "", "", "")]
+    [InlineData("settings", "flex", "selected", "", "", "")]
+    [InlineData("keybinds", "flex", "", "selected", "", "")]
+    [InlineData("diagnostics", "flex", "", "", "selected", "")]
+    [InlineData("about", "flex", "", "", "", "selected")]
+    [InlineData("main", "none", "", "", "", "")]
     public void ConfigurationTabsExposeOneSelectedPage(
         string page,
         string configDisplay,
         string settingsClass,
         string keybindsClass,
-        string diagnosticsClass)
+        string diagnosticsClass,
+        string aboutClass)
     {
         var model = new BantzModel(AppSettings.Defaults()) { Page = page };
 
@@ -24,6 +26,7 @@ public sealed class BantzModelTests
         Assert.Equal(settingsClass, model.SettingsTabClass);
         Assert.Equal(keybindsClass, model.KeybindsTabClass);
         Assert.Equal(diagnosticsClass, model.DiagnosticsTabClass);
+        Assert.Equal(aboutClass, model.AboutTabClass);
     }
 
     [Fact]

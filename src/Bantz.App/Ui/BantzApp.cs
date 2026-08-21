@@ -107,6 +107,7 @@ public sealed class BantzApp : CupriApp
         document.OnClick(".config-tab-settings", _ => OpenConfigTab("settings"));
         document.OnClick(".config-tab-keybinds", _ => OpenConfigTab("keybinds"));
         document.OnClick(".config-tab-diagnostics", _ => OpenDiagnostics());
+        document.OnClick(".config-tab-about", _ => OpenConfigTab("about"));
         document.OnClick(".diagnostics-refresh", _ => RefreshDiagnostics());
         document.OnClick(".model-path-open", _ => OpenModelFolder());
         document.OnClick(".tray-icon-settings", _ => OpenTrayIconSettings());
@@ -596,19 +597,23 @@ public sealed partial class BantzModel
     public event Action? SettingsChanged;
 
     public string Page { get; set; } = "main";
+    public string AppVersion { get; } = typeof(BantzModel).Assembly.GetName().Version?.ToString(3) ?? "Development";
     public string MainDisplay => Page == "main" ? "flex" : "none";
     public string StorageDisplay => Page == "storage" ? "flex" : "none";
     public string OnboardingDisplay => Page == "onboarding" ? "flex" : "none";
-    public string ConfigDisplay => Page is "settings" or "keybinds" or "diagnostics" ? "flex" : "none";
+    public string ConfigDisplay => Page is "settings" or "keybinds" or "diagnostics" or "about" ? "flex" : "none";
     public string SettingsTabDisplay => Page == "settings" ? "flex" : "none";
     public string KeybindsTabDisplay => Page == "keybinds" ? "flex" : "none";
     public string DiagnosticsTabDisplay => Page == "diagnostics" ? "flex" : "none";
+    public string AboutTabDisplay => Page == "about" ? "flex" : "none";
     public string SettingsTabClass => Page == "settings" ? "selected" : "";
     public string KeybindsTabClass => Page == "keybinds" ? "selected" : "";
     public string DiagnosticsTabClass => Page == "diagnostics" ? "selected" : "";
+    public string AboutTabClass => Page == "about" ? "selected" : "";
     public string SettingsTabSelected => Page == "settings" ? "true" : "false";
     public string KeybindsTabSelected => Page == "keybinds" ? "true" : "false";
     public string DiagnosticsTabSelected => Page == "diagnostics" ? "true" : "false";
+    public string AboutTabSelected => Page == "about" ? "true" : "false";
     public string TraySettingsDisplay => _traySettingsAvailable ? "flex" : "none";
     public string Status { get; set; } = "Hold to talk";
     public string Transcript { get; set; } = "Your latest transcript will appear here.";
