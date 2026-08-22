@@ -115,7 +115,6 @@ if (recordingPreview)
     model.StateClass = "recording";
     model.RecordLabel = "LISTENING";
     model.RecordHint = "Release when you’re done";
-    model.RecordingNotificationDisplay = "flex";
     model.RecordingBarOneScale = "0.28";
     model.RecordingBarTwoScale = "0.86";
     model.RecordingBarThreeScale = "0.52";

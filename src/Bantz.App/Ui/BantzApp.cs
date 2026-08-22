@@ -557,7 +557,6 @@ public sealed class BantzApp : CupriApp
             : 0;
         _model.RecordLabel = isRecording ? "LISTENING" : "HOLD TO TALK";
         _model.RecordHint = isRecording ? "Release when you’re done" : "Release to transcribe";
-        _model.RecordingNotificationDisplay = isRecording ? "flex" : "none";
         if (!isRecording)
         {
             _model.RecordingBarOneScale = "1.00";
@@ -656,7 +655,6 @@ public sealed partial class BantzModel
     public int CountdownPercent { get; set; }
     public string RecordLabel { get; set; } = "HOLD TO TALK";
     public string RecordHint { get; set; } = "Release to transcribe";
-    public string RecordingNotificationDisplay { get; set; } = "none";
     public string RecordingBarOneScale { get; set; } = "1.00";
     public string RecordingBarTwoScale { get; set; } = "1.00";
     public string RecordingBarThreeScale { get; set; } = "1.00";
