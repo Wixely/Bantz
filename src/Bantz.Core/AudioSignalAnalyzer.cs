@@ -6,7 +6,6 @@ public readonly record struct AudioSignalFrame(
     float FirstBar,
     float SecondBar,
     float ThirdBar,
-    float FourthBar,
     float Rms,
     float Peak);
 
@@ -20,7 +19,7 @@ public sealed class AudioSignalAnalyzer
     public const float ActiveRmsThreshold = 0.012f;
     public const float MeaningfulPeakThreshold = 0.025f;
     public static readonly TimeSpan MinimumMeaningfulActivity = TimeSpan.FromMilliseconds(150);
-    private const int BarCount = 4;
+    private const int BarCount = 3;
     private readonly int _sampleRate;
     private readonly int _channels;
     private readonly object _sync = new();
@@ -115,7 +114,6 @@ public sealed class AudioSignalAnalyzer
                 _smoothedBars[0],
                 _smoothedBars[1],
                 _smoothedBars[2],
-                _smoothedBars[3],
                 rms,
                 peak);
         }

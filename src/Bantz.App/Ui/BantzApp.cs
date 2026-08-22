@@ -562,7 +562,6 @@ public sealed class BantzApp : CupriApp
             _model.RecordingBarOneScale = "1.00";
             _model.RecordingBarTwoScale = "1.00";
             _model.RecordingBarThreeScale = "1.00";
-            _model.RecordingBarFourScale = "1.00";
         }
         _model.StateClass = snapshot.State switch
         {
@@ -585,7 +584,6 @@ public sealed class BantzApp : CupriApp
         _model.RecordingBarOneScale = Scale(frame.FirstBar);
         _model.RecordingBarTwoScale = Scale(frame.SecondBar);
         _model.RecordingBarThreeScale = Scale(frame.ThirdBar);
-        _model.RecordingBarFourScale = Scale(frame.FourthBar);
     }
 
     private static string Scale(float value) =>
@@ -658,7 +656,6 @@ public sealed partial class BantzModel
     public string RecordingBarOneScale { get; set; } = "1.00";
     public string RecordingBarTwoScale { get; set; } = "1.00";
     public string RecordingBarThreeScale { get; set; } = "1.00";
-    public string RecordingBarFourScale { get; set; } = "1.00";
     public string StateClass { get; set; } = "ready";
     public string RecordShortcutClass => ShortcutsEnabled ? "" : "shortcuts-disabled";
     public string CaptureState { get; set; } = "Add as many inputs as you like.";

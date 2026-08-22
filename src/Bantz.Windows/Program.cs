@@ -118,7 +118,6 @@ if (recordingPreview)
     model.RecordingBarOneScale = "0.28";
     model.RecordingBarTwoScale = "0.86";
     model.RecordingBarThreeScale = "0.52";
-    model.RecordingBarFourScale = "0.72";
     model.Status = "Listening… release to transcribe";
 }
 
