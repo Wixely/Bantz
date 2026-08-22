@@ -188,6 +188,8 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .diagnostic-row:hover { background:#171c27; }
 .diagnostic-row:last-child { border-bottom:0; }
 .diagnostic-row span { color:#9aa5b7; font-size:11px; }.diagnostic-row strong { color:#e8edf5; text-align:right; font-size:11px; }
+.diagnostics-engine-link { color:#68e0b1; text-decoration:none; display:flex; align-items:center; gap:6px; }
+.diagnostics-engine-link:hover strong, .diagnostics-engine-link:focus-visible strong { color:#68e0b1; text-decoration:underline; }
 .path-row { height:22px; }.path-row strong { max-width:300px; font-size:10px; }
 .model-path-open { max-width:390px; padding:4px 7px; border:1px solid #35594d; border-radius:8px; background:#14251f; cursor:pointer; display:flex; align-items:center; gap:8px; transition:background 150ms ease,border-color 150ms ease; }
 .model-path-open strong { color:#dce8e3!important; }.model-path-open span { flex:none; color:#7fe5bd!important; font-size:8px!important; font-weight:800; letter-spacing:.7px; }
