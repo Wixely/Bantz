@@ -29,6 +29,9 @@ jobs:
           CUPRIFACE_GITHUB_USER: ${{ github.actor }}
           CUPRIFACE_GITHUB_TOKEN: ${{ github.token }}
         run: ./eng/Verify.ps1
+      - name: Pack libraries and run package-consumer smoke test
+        shell: pwsh
+        run: ./eng/PackLibraries.ps1
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -36,6 +39,14 @@ jobs:
           name: test-results
           path: artifacts/test-results/*.trx
           if-no-files-found: warn
+      - name: Upload library packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: library-packages
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          if-no-files-found: error
 
   package:
     name: Package / ${{ matrix.name }}

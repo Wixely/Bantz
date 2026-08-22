@@ -1,8 +1,6 @@
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-using Bantz.Settings;
-
-namespace Bantz.Platform.Windows;
+namespace Bantz.Input;
 
 public sealed partial class WindowsHoldInputMonitor : IDisposable
 {
@@ -71,7 +69,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         if (_keyboardHook == nint.Zero || _mouseHook == nint.Zero)
         {
             Dispose();
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "Bantz could not register its hold-to-talk input hooks.");
+            throw new Win32Exception(Marshal.GetLastWin32Error(), "Could not register the global input hooks.");
         }
 
         _gamepadTimer = new System.Threading.Timer(PollGamepads, null, TimeSpan.Zero, TimeSpan.FromMilliseconds(20));
@@ -255,7 +253,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         InputBinding? captured = null;
         var toggleShortcuts = false;
         var suppress = false;
-        var overBantz = IsBantzWindowAt(mouse.Point);
+        var overCurrentProcess = IsCurrentProcessWindowAt(mouse.Point);
         lock (_sync)
         {
             if (_capturedMouseRelease == mouseCode)
@@ -283,14 +281,14 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
                     notification = HotkeyReleased;
                 }
             }
-            else if (!overBantz && _capturing && isDown)
+            else if (!overCurrentProcess && _capturing && isDown)
             {
                 _capturing = false;
                 _capturedMouseRelease = mouseCode;
                 captured = CreateMouseBinding(mouseCode, CurrentModifiers());
                 suppress = true;
             }
-            else if (!overBantz && isDown)
+            else if (!overCurrentProcess && isDown)
             {
                 var modifiers = CurrentModifiers();
                 var toggleBinding = GetShortcutToggleBinding();
@@ -591,7 +589,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         return mouseCode != 0;
     }
 
-    private static bool IsBantzWindowAt(NativePoint point)
+    private static bool IsCurrentProcessWindowAt(NativePoint point)
     {
         var window = WindowFromPoint(point);
         if (window == nint.Zero)

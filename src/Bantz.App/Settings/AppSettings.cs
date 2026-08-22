@@ -1,68 +1,8 @@
 using System.Text.Json.Serialization;
+using Bantz.Input;
+using Bantz.Speech.Whisper;
 
 namespace Bantz.Settings;
-
-[Flags]
-public enum KeyboardModifiers
-{
-    None = 0,
-    Control = 1,
-    Shift = 2,
-    Alt = 4,
-    Windows = 8,
-}
-
-public enum InputDevice
-{
-    Keyboard,
-    Gamepad,
-    Mouse,
-}
-
-public enum TranscriptionRuntime
-{
-    Automatic,
-    Cpu,
-}
-
-public sealed class InputBinding
-{
-    public string Id { get; set; } = Guid.NewGuid().ToString("N");
-    public InputDevice Device { get; set; }
-    public uint Code { get; set; }
-    public KeyboardModifiers Modifiers { get; set; }
-    public string DisplayName { get; set; } = "Unassigned";
-
-    public InputBinding Copy() => new()
-    {
-        Id = Id,
-        Device = Device,
-        Code = Code,
-        Modifiers = Modifiers,
-        DisplayName = DisplayName,
-    };
-
-    public bool SameInput(InputBinding other) =>
-        Device == other.Device && Code == other.Code && Modifiers == other.Modifiers;
-
-    public static InputBinding DefaultKeyboard() => new()
-    {
-        Id = "default-ctrl-shift-space",
-        Device = InputDevice.Keyboard,
-        Code = 0x20,
-        Modifiers = KeyboardModifiers.Control | KeyboardModifiers.Shift,
-        DisplayName = "Ctrl + Shift + Space",
-    };
-
-    public static InputBinding DefaultShortcutToggle() => new()
-    {
-        Id = "default-ctrl-t-shortcut-toggle",
-        Device = InputDevice.Keyboard,
-        Code = 0x54,
-        Modifiers = KeyboardModifiers.Control,
-        DisplayName = "Ctrl + T",
-    };
-}
 
 public sealed class AppSettings
 {

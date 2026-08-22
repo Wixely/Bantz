@@ -1,17 +1,31 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using Bantz.Core;
+using Bantz.Speech;
 
-namespace Bantz.Platform.Linux;
+namespace Bantz.Capture;
 
-public sealed partial class LinuxAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : IAudioRecorder, IDisposable
+/// <summary>Captures 16 kHz mono PCM through ALSA's arecord command.</summary>
+public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
 {
+    private readonly AudioSignalAnalyzer _signalAnalyzer;
+    private readonly AudioCaptureOptions _options;
     private readonly object _sync = new();
     private Process? _process;
     private MemoryStream? _pcm;
     private Task? _captureTask;
+    private long _sequence;
     private bool _disposed;
+
+    public LinuxAudioRecorder(
+        AudioSignalAnalyzer? signalAnalyzer = null,
+        AudioCaptureOptions? options = null)
+    {
+        _signalAnalyzer = signalAnalyzer ?? new AudioSignalAnalyzer();
+        _options = options ?? AudioCaptureOptions.Default;
+    }
+
+    public event Action<AudioFrame>? FrameCaptured;
 
     public ValueTask StartAsync(CancellationToken cancellationToken = default)
     {
@@ -37,25 +51,31 @@ public sealed partial class LinuxAudioRecorder(AudioSignalAnalyzer signalAnalyze
             start.ArgumentList.Add("-f");
             start.ArgumentList.Add("S16_LE");
             start.ArgumentList.Add("-r");
-            start.ArgumentList.Add("16000");
+            start.ArgumentList.Add(PcmAudio.SpeechSampleRate.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("-c");
-            start.ArgumentList.Add("1");
+            start.ArgumentList.Add(PcmAudio.SpeechChannels.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("-t");
             start.ArgumentList.Add("raw");
+            if (!string.IsNullOrWhiteSpace(_options.DeviceId) &&
+                !string.Equals(_options.DeviceId, "default", StringComparison.OrdinalIgnoreCase))
+            {
+                start.ArgumentList.Add("-D");
+                start.ArgumentList.Add(_options.DeviceId);
+            }
 
             try
             {
-                _process = Process.Start(start)
-                    ?? throw new InvalidOperationException("arecord did not start.");
+                _process = Process.Start(start) ?? throw new InvalidOperationException("arecord did not start.");
                 _pcm = new MemoryStream();
-                signalAnalyzer.Reset();
+                _sequence = 0;
+                _signalAnalyzer.Reset();
                 _captureTask = CaptureAudioAsync(_process.StandardOutput.BaseStream, _pcm);
             }
             catch (Win32Exception exception)
             {
                 CleanupCapture();
                 throw new InvalidOperationException(
-                    "Bantz needs the ALSA 'arecord' command to record on Linux. Install alsa-utils.",
+                    "Linux capture needs the ALSA 'arecord' command. Install alsa-utils.",
                     exception);
             }
         }
@@ -63,7 +83,7 @@ public sealed partial class LinuxAudioRecorder(AudioSignalAnalyzer signalAnalyze
         return ValueTask.CompletedTask;
     }
 
-    public async ValueTask<Stream> StopAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<PcmAudio> StopAsync(CancellationToken cancellationToken = default)
     {
         Process process;
         Task captureTask;
@@ -91,7 +111,7 @@ public sealed partial class LinuxAudioRecorder(AudioSignalAnalyzer signalAnalyze
                 throw new InvalidOperationException($"arecord did not produce audio. {error}".Trim());
             }
 
-            return PcmWave.CreateStream(bytes);
+            return new PcmAudio(bytes.Length % sizeof(short) == 0 ? bytes : bytes[..^1]);
         }
         finally
         {
@@ -149,7 +169,12 @@ public sealed partial class LinuxAudioRecorder(AudioSignalAnalyzer signalAnalyze
             await destination.WriteAsync(buffer.AsMemory(carry, bytesRead)).ConfigureAwait(false);
             var available = carry + bytesRead;
             var analysisBytes = available - (available % sizeof(short));
-            signalAnalyzer.AnalyzePcm16(buffer.AsSpan(0, analysisBytes));
+            if (analysisBytes != 0)
+            {
+                var frameBytes = buffer.AsMemory(0, analysisBytes).ToArray();
+                _signalAnalyzer.AnalyzePcm16(frameBytes);
+                FrameCaptured?.Invoke(new AudioFrame(new PcmAudio(frameBytes), Interlocked.Increment(ref _sequence)));
+            }
             carry = available - analysisBytes;
             if (carry != 0)
             {

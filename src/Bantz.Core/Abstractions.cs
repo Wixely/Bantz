@@ -1,16 +1,5 @@
 namespace Bantz.Core;
 
-public interface IAudioRecorder
-{
-    ValueTask StartAsync(CancellationToken cancellationToken = default);
-    ValueTask<Stream> StopAsync(CancellationToken cancellationToken = default);
-}
-
-public interface ITranscriptionEngine
-{
-    Task<string> TranscribeAsync(Stream waveAudio, CancellationToken cancellationToken = default);
-}
-
 public interface ITextInjector
 {
     TextInjectionResult InjectIntoForeground(string text, bool pressEnter);

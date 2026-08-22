@@ -16,6 +16,13 @@
       "args": ["test", "Bantz.slnx", "-c", "Debug", "--no-build"],
       "problemMatcher": "$msCompile",
       "group": "test"
+    },
+    {
+      "label": "Bantz: pack libraries",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/eng/PackLibraries.ps1"],
+      "problemMatcher": "$msCompile"
     }
   ]
 }

@@ -19,5 +19,6 @@
   <ItemGroup>
     <ProjectReference Include="../Bantz.Core/Bantz.Core.csproj" />
     <ProjectReference Include="../Bantz.App/Bantz.App.csproj" />
+    <ProjectReference Include="../Bantz.Capture/Bantz.Capture.csproj" />
   </ItemGroup>
 </Project>

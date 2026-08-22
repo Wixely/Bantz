@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 
-namespace Bantz.Core;
+namespace Bantz.Capture;
 
 public readonly record struct AudioSignalFrame(
     float FirstBar,

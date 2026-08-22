@@ -1,3 +1,6 @@
+using Bantz.Capture;
+using Bantz.Speech;
+
 namespace Bantz.Core;
 
 public enum DictationState
@@ -38,12 +41,14 @@ public sealed class DictationWorkflow(
     Func<ActivationKind, int>? delaySeconds = null,
     TimeProvider? timeProvider = null,
     Func<bool>? shouldAutomaticallyWrite = null,
-    Func<AudioSignalSummary>? audioSignalSummary = null) : IDisposable
+    Func<AudioSignalSummary>? audioSignalSummary = null,
+    TimeSpan? minimumRecordingDuration = null) : IDisposable
 {
     public static readonly TimeSpan MinimumRecordingDuration = TimeSpan.FromSeconds(1.5);
 
     private readonly SemaphoreSlim _operation = new(1, 1);
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly TimeSpan _minimumRecordingDuration = minimumRecordingDuration ?? MinimumRecordingDuration;
     private readonly object _activitySync = new();
     private readonly object _injectionSync = new();
     private readonly Queue<InjectionRequest> _injectionQueue = [];
@@ -98,7 +103,7 @@ public sealed class DictationWorkflow(
     {
         // A fresh PTT press must not race a transcript that is about to be typed.
         // Keep that transcript, but give the user another full accidental-hit buffer.
-        ExtendPendingInjection(MinimumRecordingDuration);
+        ExtendPendingInjection(_minimumRecordingDuration);
 
         await _operation.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -144,14 +149,14 @@ public sealed class DictationWorkflow(
                 return;
             }
 
-            await using var audio = await recorder.StopAsync(cancellationToken).ConfigureAwait(false);
+            var audio = await recorder.StopAsync(cancellationToken).ConfigureAwait(false);
             var recordingDuration = _timeProvider.GetElapsedTime(_recordingStarted);
             lock (_activitySync)
             {
                 _recordingActivation = null;
             }
 
-            if (recordingDuration < MinimumRecordingDuration)
+            if (recordingDuration < _minimumRecordingDuration)
             {
                 PublishWithPending(new(
                     DictationState.Ready,
@@ -182,7 +187,7 @@ public sealed class DictationWorkflow(
                 activation,
                 "Transcribing locally…",
                 _snapshot.Transcript));
-            var text = (await transcription.TranscribeAsync(audio, cancellationToken).ConfigureAwait(false)).Trim();
+            var text = (await transcription.TranscribeAsync(audio, cancellationToken).ConfigureAwait(false)).Text.Trim();
             lock (_activitySync)
             {
                 _transcribingActivation = null;

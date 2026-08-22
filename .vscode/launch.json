@@ -9,6 +9,15 @@
       "program": "${workspaceFolder}/src/Bantz.Windows/bin/Debug/net10.0-windows10.0.17763.0/win-x64/Bantz.Windows.exe",
       "cwd": "${workspaceFolder}",
       "stopAtEntry": false
+    },
+    {
+      "name": "Bantz packages: MinimalDictation",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Bantz: pack libraries",
+      "program": "${workspaceFolder}/samples/MinimalDictation/bin/Release/net10.0/MinimalDictation.dll",
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false
     }
   ]
 }

@@ -1,4 +1,5 @@
 using Bantz.Settings;
+using Bantz.Input;
 using Bantz.Ui;
 using Xunit;
 

@@ -1,11 +1,16 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Bantz.Capture/Bantz.Capture.csproj" />
     <Project Path="src/Bantz.Core/Bantz.Core.csproj" />
+    <Project Path="src/Bantz.Input/Bantz.Input.csproj" />
+    <Project Path="src/Bantz.Speech.Abstractions/Bantz.Speech.Abstractions.csproj" />
+    <Project Path="src/Bantz.Speech.Whisper/Bantz.Speech.Whisper.csproj" />
     <Project Path="src/Bantz.App/Bantz.App.csproj" />
     <Project Path="src/Bantz.Linux/Bantz.Linux.csproj" />
     <Project Path="src/Bantz.Windows/Bantz.Windows.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bantz.Core.Tests/Bantz.Core.Tests.csproj" />
+    <Project Path="tests/Bantz.Packages.Tests/Bantz.Packages.Tests.csproj" />
   </Folder>
 </Solution>

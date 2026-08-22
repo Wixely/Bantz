@@ -7,10 +7,12 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CupriFace" Version="0.2.11" />
-    <PackageReference Include="Whisper.net" Version="1.9.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Bantz.Core/Bantz.Core.csproj" />
+    <ProjectReference Include="../Bantz.Capture/Bantz.Capture.csproj" />
+    <ProjectReference Include="../Bantz.Input/Bantz.Input.csproj" />
+    <ProjectReference Include="../Bantz.Speech.Whisper/Bantz.Speech.Whisper.csproj" />
   </ItemGroup>
   <!-- CupriFace ships its binding generator in the core package; Bantz owns the small asset
        embedding rule because the resource generator/targets are not part of the package. -->

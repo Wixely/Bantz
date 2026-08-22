@@ -1,16 +1,30 @@
-using Bantz.Core;
+using Bantz.Speech;
 using NAudio;
 using NAudio.Wave;
 
-namespace Bantz.Platform.Windows;
+namespace Bantz.Capture;
 
-public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : IAudioRecorder, IDisposable
+/// <summary>Captures 16 kHz mono PCM from a Windows wave-in device.</summary>
+public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
 {
+    private readonly AudioSignalAnalyzer _signalAnalyzer;
+    private readonly AudioCaptureOptions _options;
     private readonly object _sync = new();
     private WaveInEvent? _input;
     private MemoryStream? _pcm;
     private TaskCompletionSource? _stopped;
+    private long _sequence;
     private bool _disposed;
+
+    public WindowsAudioRecorder(
+        AudioSignalAnalyzer? signalAnalyzer = null,
+        AudioCaptureOptions? options = null)
+    {
+        _signalAnalyzer = signalAnalyzer ?? new AudioSignalAnalyzer();
+        _options = options ?? AudioCaptureOptions.Default;
+    }
+
+    public event Action<AudioFrame>? FrameCaptured;
 
     public ValueTask StartAsync(CancellationToken cancellationToken = default)
     {
@@ -25,12 +39,13 @@ public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : I
             }
 
             _pcm = new MemoryStream();
-            signalAnalyzer.Reset();
+            _sequence = 0;
+            _signalAnalyzer.Reset();
             _stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _input = new WaveInEvent
             {
-                DeviceNumber = 0,
-                WaveFormat = new WaveFormat(16_000, 16, 1),
+                DeviceNumber = ResolveDeviceNumber(_options.DeviceId),
+                WaveFormat = new WaveFormat(PcmAudio.SpeechSampleRate, 16, PcmAudio.SpeechChannels),
                 BufferMilliseconds = 50,
             };
             _input.DataAvailable += OnDataAvailable;
@@ -49,7 +64,7 @@ public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : I
         return ValueTask.CompletedTask;
     }
 
-    public async ValueTask<Stream> StopAsync(CancellationToken cancellationToken = default)
+    public async ValueTask<PcmAudio> StopAsync(CancellationToken cancellationToken = default)
     {
         WaveInEvent input;
         Task stopped;
@@ -74,7 +89,7 @@ public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : I
             }
         }
 
-        return PcmWave.CreateStream(pcm);
+        return new PcmAudio(pcm);
     }
 
     public void Dispose()
@@ -105,12 +120,14 @@ public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : I
 
     private void OnDataAvailable(object? sender, WaveInEventArgs eventArgs)
     {
+        var frameBytes = eventArgs.Buffer.AsMemory(0, eventArgs.BytesRecorded).ToArray();
         lock (_sync)
         {
-            _pcm?.Write(eventArgs.Buffer, 0, eventArgs.BytesRecorded);
+            _pcm?.Write(frameBytes);
         }
 
-        signalAnalyzer.AnalyzePcm16(eventArgs.Buffer.AsSpan(0, eventArgs.BytesRecorded));
+        _signalAnalyzer.AnalyzePcm16(frameBytes);
+        FrameCaptured?.Invoke(new AudioFrame(new PcmAudio(frameBytes), Interlocked.Increment(ref _sequence)));
     }
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs eventArgs)
@@ -123,6 +140,18 @@ public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : I
         {
             _stopped?.TrySetException(eventArgs.Exception);
         }
+    }
+
+    private static int ResolveDeviceNumber(string? deviceId)
+    {
+        if (string.IsNullOrWhiteSpace(deviceId) || string.Equals(deviceId, "default", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        return int.TryParse(deviceId, out var deviceNumber) && deviceNumber >= 0
+            ? deviceNumber
+            : throw new ArgumentException("Windows device ids must be non-negative wave-in device numbers.", nameof(deviceId));
     }
 
     private void CleanupInput()
@@ -139,5 +168,4 @@ public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : I
         _pcm = null;
         _stopped = null;
     }
-
 }

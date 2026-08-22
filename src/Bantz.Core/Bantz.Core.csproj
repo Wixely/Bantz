@@ -4,4 +4,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Bantz.Capture/Bantz.Capture.csproj" />
+    <ProjectReference Include="../Bantz.Speech.Abstractions/Bantz.Speech.Abstractions.csproj" />
+  </ItemGroup>
 </Project>

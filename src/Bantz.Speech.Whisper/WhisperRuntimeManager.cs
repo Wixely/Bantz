@@ -1,8 +1,6 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
-using Bantz.Settings;
-
-namespace Bantz.Transcription;
+namespace Bantz.Speech.Whisper;
 
 public sealed class WhisperRuntimeManager
 {
@@ -43,6 +41,15 @@ public sealed class WhisperRuntimeManager
 
         var package = PackageFor(runtime);
         Directory.CreateDirectory(Root);
+        await using var installationLock = await FileInstallationLock
+            .AcquireAsync(Path.Combine(Root, $"{package.Key}.lock"), cancellationToken)
+            .ConfigureAwait(false);
+        if (IsInstalled(runtime))
+        {
+            progress?.Report(new RuntimeDownloadProgress(1, 1));
+            return;
+        }
+
         var packagePath = Path.Combine(Root, $"{package.Key}.nupkg.download");
 
         using (var response = await Http.GetAsync(package.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))

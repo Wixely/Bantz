@@ -1,7 +1,8 @@
 using Bantz.Core;
+using Bantz.Capture;
 using Bantz.Platform.Linux;
 using Bantz.Settings;
-using Bantz.Transcription;
+using Bantz.Speech.Whisper;
 using Bantz.Ui;
 using CupriFace.Shell;
 using SkiaSharp;
@@ -35,7 +36,6 @@ if (hasRuntimeOverride)
     settings.Runtime = selectedRuntime;
 }
 
-WhisperTranscriptionEngine.ConfigureRuntime(selectedRuntime, runtimeManager);
 var model = new BantzModel(settings);
 if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
 {
@@ -43,7 +43,12 @@ if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
 }
 var signalAnalyzer = new AudioSignalAnalyzer();
 using var recorder = new LinuxAudioRecorder(signalAnalyzer);
-using var engine = new WhisperTranscriptionEngine(() => modelOverride ?? storage.ModelPath);
+using var engine = new WhisperTranscriptionEngine(new WhisperOptions
+{
+    ModelPathProvider = () => modelOverride ?? storage.ModelPath,
+    RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
+    Runtime = selectedRuntime,
+});
 if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 {
     engine.ProbeRuntime();

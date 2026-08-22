@@ -1,18 +1,20 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text;
-using Bantz.Core;
-using Bantz.Settings;
+using Bantz.Speech;
 using Whisper.net;
 using Whisper.net.Ggml;
 using Whisper.net.LibraryLoader;
 
-namespace Bantz.Transcription;
+namespace Bantz.Speech.Whisper;
 
 public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposable
 {
     public const long BaseEnglishModelBytes = 147_964_211;
+    public const string BaseEnglishModelSha256 = "A03779C86DF3323075F5E796CB2CE5029F00EC8869EEE3FDFB897AFE36C6D002";
     private readonly SemaphoreSlim _modelLock = new(1, 1);
     private readonly Func<string> _modelPathProvider;
+    private readonly string _language = "en";
     private string _lastRun = "Not run yet";
 
     public WhisperTranscriptionEngine(string modelPath)
@@ -25,8 +27,31 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
         _modelPathProvider = modelPathProvider;
     }
 
+    public WhisperTranscriptionEngine(WhisperOptions options)
+        : this((options ?? throw new ArgumentNullException(nameof(options))).ModelPathProvider)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(options.Language);
+        _language = options.Language;
+        ConfigureRuntime(options.Runtime, new WhisperRuntimeManager(options.RuntimeRootProvider));
+    }
+
     private string ModelPath => _modelPathProvider();
     public bool IsModelAvailable => File.Exists(ModelPath);
+    public bool IsReady => IsModelAvailable;
+
+    public async ValueTask InitializeAsync(
+        IProgress<TranscriptionInitializationProgress>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        IProgress<ModelDownloadProgress>? modelProgress = progress is null
+            ? null
+            : new Progress<ModelDownloadProgress>(value => progress.Report(new(
+                TranscriptionInitializationStage.DownloadingModel,
+                value.DownloadedBytes,
+                value.TotalBytes)));
+        await DownloadModelAsync(modelProgress, cancellationToken).ConfigureAwait(false);
+        progress?.Report(new TranscriptionInitializationProgress(TranscriptionInitializationStage.Ready, 1, 1));
+    }
 
     public void ProbeRuntime()
     {
@@ -46,17 +71,24 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
             : [RuntimeLibrary.Vulkan];
     }
 
-    public async Task<string> TranscribeAsync(Stream waveAudio, CancellationToken cancellationToken = default)
+    public async Task<TranscriptionResult> TranscribeAsync(
+        PcmAudio audio,
+        CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
         try
         {
             await EnsureModelAsync(cancellationToken).ConfigureAwait(false);
-            waveAudio.Position = 0;
+            if (audio.SampleRate != PcmAudio.SpeechSampleRate || audio.Channels != PcmAudio.SpeechChannels)
+            {
+                throw new ArgumentException("Whisper requires signed 16-bit, 16 kHz, mono PCM.", nameof(audio));
+            }
+
+            using var waveAudio = audio.CreateWaveStream();
 
             using var factory = WhisperFactory.FromPath(ModelPath);
             using var processor = factory.CreateBuilder()
-                .WithLanguage("en")
+                .WithLanguage(_language)
                 .Build();
             var transcript = new StringBuilder();
             await foreach (var segment in processor.ProcessAsync(waveAudio, cancellationToken).ConfigureAwait(false))
@@ -65,7 +97,7 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
             }
 
             _lastRun = $"Succeeded in {stopwatch.ElapsedMilliseconds:N0} ms · {transcript.Length:N0} characters";
-            return transcript.ToString();
+            return new TranscriptionResult(transcript.ToString(), _language);
         }
         catch
         {
@@ -86,12 +118,26 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
             "whisper.cpp via Whisper.net",
             version,
             runtime,
-            "English (en)",
+            _language,
             file.Name,
             available ? $"{file.Length / 1_048_576d:N1} MiB" : "Not downloaded",
             file.FullName,
             _lastRun,
             available ? "healthy" : "attention");
+    }
+
+    TranscriptionDiagnostics ITranscriptionEngine.GetDiagnostics()
+    {
+        var diagnostics = GetDiagnostics();
+        return new TranscriptionDiagnostics(
+            IsReady,
+            diagnostics.Engine,
+            diagnostics.Version,
+            diagnostics.Runtime,
+            diagnostics.Language,
+            diagnostics.Model,
+            diagnostics.ModelPath,
+            diagnostics.LastRun);
     }
 
     private async Task EnsureModelAsync(CancellationToken cancellationToken)
@@ -113,15 +159,18 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
         try
         {
             var modelPath = ModelPath;
-            if (File.Exists(modelPath))
-            {
-                return;
-            }
-
             var directory = Path.GetDirectoryName(modelPath);
             if (!string.IsNullOrEmpty(directory))
             {
                 Directory.CreateDirectory(directory);
+            }
+
+            await using var installationLock = await FileInstallationLock
+                .AcquireAsync(modelPath + ".lock", cancellationToken)
+                .ConfigureAwait(false);
+            if (File.Exists(modelPath))
+            {
+                return;
             }
 
             var temporaryPath = modelPath + ".download";
@@ -149,7 +198,21 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
 
             if (new FileInfo(temporaryPath).Length != BaseEnglishModelBytes)
             {
+                File.Delete(temporaryPath);
                 throw new InvalidDataException("The downloaded speech model has an unexpected size.");
+            }
+
+            string actualHash;
+            await using (var modelStream = File.OpenRead(temporaryPath))
+            {
+                actualHash = Convert.ToHexString(
+                    await SHA256.HashDataAsync(modelStream, cancellationToken).ConfigureAwait(false));
+            }
+
+            if (!string.Equals(actualHash, BaseEnglishModelSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                File.Delete(temporaryPath);
+                throw new InvalidDataException("The downloaded speech model failed its integrity check.");
             }
 
             File.Move(temporaryPath, modelPath, overwrite: true);

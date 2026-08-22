@@ -41,6 +41,17 @@ jobs:
           CUPRIFACE_GITHUB_USER: ${{ github.actor }}
           CUPRIFACE_GITHUB_TOKEN: ${{ github.token }}
         run: ./eng/Verify.ps1
+      - name: Pack libraries and run package-consumer smoke test
+        shell: pwsh
+        run: ./eng/PackLibraries.ps1
+      - name: Upload library packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: library-packages
+          path: |
+            artifacts/packages/*.nupkg
+            artifacts/packages/*.snupkg
+          if-no-files-found: error
 
   package:
     name: Package / ${{ matrix.name }}
@@ -82,18 +93,39 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish GitHub release
+    name: Publish GitHub release and packages
     if: github.ref_type == 'tag'
     needs: [verify, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.300
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
           path: artifacts/download
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: library-packages
+          path: artifacts/download
+      - name: Publish NuGet packages
+        shell: pwsh
+        env:
+          PACKAGE_SOURCE: https://nuget.pkg.github.com/Wixely/index.json
+        run: |
+          $packages = Get-ChildItem artifacts/download -File -Filter '*.nupkg' |
+            Where-Object { $_.Name -notlike '*.snupkg' } |
+            Sort-Object Name
+          if ($packages.Count -ne 4) { throw "Expected four library packages; found $($packages.Count)." }
+          foreach ($package in $packages) {
+            dotnet nuget push $package.FullName --source $env:PACKAGE_SOURCE --api-key '${{ github.token }}' --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { throw "Publishing $($package.Name) failed." }
+          }
       - name: Create release
         shell: pwsh
         env:

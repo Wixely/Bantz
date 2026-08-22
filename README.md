@@ -84,6 +84,18 @@ Create the same standalone executables and archives used by CI:
 ./eng/Package.ps1 -Platform linux-x64 # run on Linux so its smoke test can execute
 ```
 
+Build the reusable libraries and prove package-only consumption:
+
+```powershell
+./eng/PackLibraries.ps1
+```
+
+This creates `Bantz.Speech.Abstractions`, `Bantz.Speech.Whisper`, `Bantz.Capture`, and
+`Bantz.Input` packages plus symbols. The script then restores, builds, and runs
+`samples/MinimalDictation` from the local packages rather than project references. Speech
+contracts use signed 16-bit, 16 kHz, mono PCM. Minimum-duration and silence decisions remain
+consumer workflow policy; generic tray creation/menu support is not part of the first input API.
+
 Each GitHub release provides a direct standalone Windows `.exe` and Linux executable, plus archives containing the licence and third-party notices. The executable is self-contained and approximately 64 MiB; it does not require a separate .NET installation. Linux users may need to run `chmod +x` after downloading the direct executable.
 
 Whisper native runtimes and speech models are downloaded separately during setup: about 18 MiB plus the model for CPU, or 35 MiB plus the model for Vulkan. Only the selected runtime's files for the current platform are installed.

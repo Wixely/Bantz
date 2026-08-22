@@ -1,5 +1,4 @@
-using Bantz.Settings;
-using Bantz.Transcription;
+using Bantz.Speech.Whisper;
 using Xunit;
 
 namespace Bantz.Core.Tests;

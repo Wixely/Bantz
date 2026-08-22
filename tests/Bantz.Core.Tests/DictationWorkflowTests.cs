@@ -1,5 +1,7 @@
 using System.Text;
+using Bantz.Capture;
 using Bantz.Core;
+using Bantz.Speech;
 using Xunit;
 
 namespace Bantz.Core.Tests;
@@ -44,6 +46,25 @@ public sealed class DictationWorkflowTests
 
         Assert.Empty(delay.Delays);
         Assert.Equal(("quick note", false), injector.LastInjection);
+    }
+
+    [Fact]
+    public async Task MinimumRecordingDurationCanBeDisabledByConsumerWorkflow()
+    {
+        var injector = new InjectorFake();
+        using var workflow = new DictationWorkflow(
+            new RecorderFake(),
+            new EngineFake("segmented elsewhere"),
+            injector,
+            new DelayFake(),
+            () => false,
+            timeProvider: new ManualTimeProvider(),
+            minimumRecordingDuration: TimeSpan.Zero);
+
+        await workflow.StartAsync(ActivationKind.Hotkey);
+        await workflow.StopAsync(ActivationKind.Hotkey);
+
+        Assert.Equal(("segmented elsewhere", false), injector.LastInjection);
     }
 
     [Fact]
@@ -372,10 +393,10 @@ public sealed class DictationWorkflowTests
         public int StopCount { get; private set; }
         public ValueTask StartAsync(CancellationToken cancellationToken = default) => ValueTask.CompletedTask;
 
-        public ValueTask<Stream> StopAsync(CancellationToken cancellationToken = default)
+        public ValueTask<PcmAudio> StopAsync(CancellationToken cancellationToken = default)
         {
             StopCount++;
-            return ValueTask.FromResult<Stream>(new MemoryStream(Encoding.UTF8.GetBytes("wave")));
+            return ValueTask.FromResult(new PcmAudio(new byte[32]));
         }
     }
 
@@ -383,10 +404,10 @@ public sealed class DictationWorkflowTests
     {
         public int CallCount { get; private set; }
 
-        public Task<string> TranscribeAsync(Stream waveAudio, CancellationToken cancellationToken = default)
+        public Task<TranscriptionResult> TranscribeAsync(PcmAudio audio, CancellationToken cancellationToken = default)
         {
             CallCount++;
-            return Task.FromResult(result);
+            return Task.FromResult(new TranscriptionResult(result));
         }
     }
 

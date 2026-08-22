@@ -1,6 +1,8 @@
 using Bantz.Core;
+using Bantz.Capture;
+using Bantz.Input;
 using Bantz.Settings;
-using Bantz.Transcription;
+using Bantz.Speech.Whisper;
 using CupriFace;
 using CupriFace.Binding;
 using CupriFace.Resources;

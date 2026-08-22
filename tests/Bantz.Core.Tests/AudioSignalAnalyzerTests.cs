@@ -1,5 +1,5 @@
 using System.Buffers.Binary;
-using Bantz.Core;
+using Bantz.Capture;
 using Xunit;
 
 namespace Bantz.Core.Tests;
