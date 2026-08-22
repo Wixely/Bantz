@@ -44,4 +44,29 @@ public sealed class AudioSignalAnalyzerTests
 
         Assert.Equal(default, analyzer.Summary);
     }
+
+    [Fact]
+    public void QuietSpeechDoublesVisualMovementAboveRestingLevel()
+    {
+        var analyzer = new AudioSignalAnalyzer();
+        AudioSignalFrame? frame = null;
+        analyzer.FrameAnalyzed += value => frame = value;
+        var pcm = new byte[3_200];
+        const short sample = 400;
+        for (var offset = 0; offset < pcm.Length; offset += sizeof(short))
+        {
+            BinaryPrimitives.WriteInt16LittleEndian(pcm.AsSpan(offset), sample);
+        }
+
+        analyzer.AnalyzePcm16(pcm);
+
+        Assert.NotNull(frame);
+        const float restingLevel = 0.12f;
+        var decibels = 20 * MathF.Log10(frame.Value.Rms);
+        var originalVisualLevel = Math.Clamp((decibels + 52) / 42, restingLevel, 1f);
+        var expected = restingLevel + ((originalVisualLevel - restingLevel) * 2);
+        Assert.Equal(expected, frame.Value.FirstBar, precision: 5);
+        Assert.Equal(expected, frame.Value.SecondBar, precision: 5);
+        Assert.Equal(expected, frame.Value.ThirdBar, precision: 5);
+    }
 }

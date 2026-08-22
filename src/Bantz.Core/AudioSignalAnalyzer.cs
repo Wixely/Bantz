@@ -20,6 +20,8 @@ public sealed class AudioSignalAnalyzer
     public const float MeaningfulPeakThreshold = 0.025f;
     public static readonly TimeSpan MinimumMeaningfulActivity = TimeSpan.FromMilliseconds(150);
     private const int BarCount = 3;
+    private const float MinimumVisualLevel = 0.12f;
+    private const float VisualMovementGain = 2f;
     private readonly int _sampleRate;
     private readonly int _channels;
     private readonly object _sync = new();
@@ -130,10 +132,14 @@ public sealed class AudioSignalAnalyzer
     {
         if (rms <= 0.0001f)
         {
-            return 0.12f;
+            return MinimumVisualLevel;
         }
 
         var decibels = 20 * MathF.Log10(rms);
-        return Math.Clamp((decibels + 52) / 42, 0.12f, 1f);
+        var visualLevel = Math.Clamp((decibels + 52) / 42, MinimumVisualLevel, 1f);
+        return Math.Clamp(
+            MinimumVisualLevel + ((visualLevel - MinimumVisualLevel) * VisualMovementGain),
+            MinimumVisualLevel,
+            1f);
     }
 }
