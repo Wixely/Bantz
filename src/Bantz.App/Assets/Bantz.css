@@ -85,8 +85,7 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .record.recording .mic-vector { color:#ff8c7b; }
 .record.recording .wave-bars span { background:#ff8c7b; }
 .wave-bars { width:42px; height:56px; display:flex; align-items:center; justify-content:center; gap:5px; }
-.wave-bars span { width:5px; border-radius:3px; background:#68e0b1; transition:transform 80ms linear; }
-.wave-bars span:nth-child(1) { height:20px; }.wave-bars span:nth-child(2) { height:46px; }.wave-bars span:nth-child(3) { height:31px; }
+.wave-bars span { width:5px; height:46px; border-radius:3px; background:#68e0b1; transition:transform 80ms linear; }
 .record strong { width:100%; color:#f6f2ea; text-align:center; font-size:18px; letter-spacing:1.8px; }
 .record-hint { width:100%; color:#a9b7b2; text-align:center; font-size:12px; }
 .status { min-height:22px; margin:11px 0 0; color:#9aa5b7; text-align:center; font-size:13px; }

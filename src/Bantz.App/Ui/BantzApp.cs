@@ -559,9 +559,9 @@ public sealed class BantzApp : CupriApp
         _model.RecordHint = isRecording ? "Release when you’re done" : "Release to transcribe";
         if (!isRecording)
         {
-            _model.RecordingBarOneScale = "1.00";
+            _model.RecordingBarOneScale = "0.43";
             _model.RecordingBarTwoScale = "1.00";
-            _model.RecordingBarThreeScale = "1.00";
+            _model.RecordingBarThreeScale = "0.67";
         }
         _model.StateClass = snapshot.State switch
         {
@@ -653,9 +653,9 @@ public sealed partial class BantzModel
     public int CountdownPercent { get; set; }
     public string RecordLabel { get; set; } = "HOLD TO TALK";
     public string RecordHint { get; set; } = "Release to transcribe";
-    public string RecordingBarOneScale { get; set; } = "1.00";
+    public string RecordingBarOneScale { get; set; } = "0.43";
     public string RecordingBarTwoScale { get; set; } = "1.00";
-    public string RecordingBarThreeScale { get; set; } = "1.00";
+    public string RecordingBarThreeScale { get; set; } = "0.67";
     public string StateClass { get; set; } = "ready";
     public string RecordShortcutClass => ShortcutsEnabled ? "" : "shortcuts-disabled";
     public string CaptureState { get; set; } = "Add as many inputs as you like.";
