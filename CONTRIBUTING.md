@@ -2,10 +2,10 @@
 
 ## Development checks
 
-Install the .NET SDK selected by `global.json`, initialise submodules, and run:
+Install the .NET SDK selected by `global.json`, set `CUPRIFACE_GITHUB_USER` and
+`CUPRIFACE_GITHUB_TOKEN` as described in the README, and run:
 
 ```powershell
-git submodule update --init --recursive
 ./eng/Verify.ps1
 ```
 

@@ -6,15 +6,18 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="CupriFace" Version="0.2.11" />
     <PackageReference Include="Whisper.net" Version="1.9.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Bantz.Core/Bantz.Core.csproj" />
-    <ProjectReference Include="../../external/CupriFace/src/CupriFace/CupriFace.csproj" />
-    <ProjectReference Include="../../external/CupriFace/src/CupriFace.Binding.Gen/CupriFace.Binding.Gen.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="../../external/CupriFace/src/CupriFace.Resources.Gen/CupriFace.Resources.Gen.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
-  <Import Project="../../external/CupriFace/src/CupriFace.Resources.targets" />
+  <!-- CupriFace ships its binding generator in the core package; Bantz owns the small asset
+       embedding rule because the resource generator/targets are not part of the package. -->
+  <ItemGroup>
+    <None Remove="Assets\**\*" />
+    <EmbeddedResource Include="Assets\**\*">
+      <LogicalName>Assets/$([System.String]::Copy('%(RecursiveDir)').Replace('\','/'))%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

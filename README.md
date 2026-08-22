@@ -35,7 +35,7 @@ Whisper is a speech-recognition model that turns recorded audio into text. Audio
 Common source requirements:
 
 - .NET 10 SDK `10.0.300` or a compatible patch
-- Git submodules
+- A GitHub personal access token with `read:packages` for the public CupriFace package feed
 - A working default recording device
 - An x64 CPU with AVX, AVX2, FMA, and F16C support for the CPU runtime
 
@@ -45,9 +45,13 @@ Windows also requires:
 - The Microsoft Visual C++ 2022 x64 runtime required by the native Whisper runtime
 
 ```powershell
-git submodule update --init --recursive
+$env:CUPRIFACE_GITHUB_USER = 'your-github-username'
+$env:CUPRIFACE_GITHUB_TOKEN = 'your-read-packages-token'
 dotnet run --project src/Bantz.Windows
 ```
+
+GitHub requires authentication for its NuGet feed even though CupriFace is public. Keep the token
+in your environment or user-level secret store; do not add it to `NuGet.config` or commit it.
 
 Use a model already on disk instead of the first-run download:
 
@@ -60,7 +64,8 @@ The `BANTZ_STT_MODEL` environment variable provides the same override. Command-l
 The Linux x64 host is experimental. It supports the main hold-to-talk button, local transcription, text insertion, delays, Enter-afterwards, and always-on-top. It requires `glibc` 2.31 or newer and `libstdc++6`. Install `alsa-utils` for recording and either `wtype` (Wayland) or `xdotool` (X11) for text insertion, then run:
 
 ```bash
-git submodule update --init --recursive
+export CUPRIFACE_GITHUB_USER='your-github-username'
+export CUPRIFACE_GITHUB_TOKEN='your-read-packages-token'
 dotnet run --project src/Bantz.Linux
 ```
 

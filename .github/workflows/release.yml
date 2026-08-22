@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -21,8 +22,6 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: recursive
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.300
@@ -38,6 +37,9 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
       - name: Run release gates
         shell: pwsh
+        env:
+          CUPRIFACE_GITHUB_USER: ${{ github.actor }}
+          CUPRIFACE_GITHUB_TOKEN: ${{ github.token }}
         run: ./eng/Verify.ps1
 
   package:
@@ -60,13 +62,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: recursive
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.300
       - name: Publish and smoke test
         shell: pwsh
+        env:
+          CUPRIFACE_GITHUB_USER: ${{ github.actor }}
+          CUPRIFACE_GITHUB_TOKEN: ${{ github.token }}
         run: ./eng/Package.ps1 -Platform '${{ matrix.platform }}'
       - uses: actions/upload-artifact@v7
         with:

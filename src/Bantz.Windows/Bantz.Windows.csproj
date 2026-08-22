@@ -17,11 +17,11 @@
     <ApplicationIcon>..\Bantz.App\Assets\Bantz.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="CupriFace.Shell" Version="0.2.11" />
     <PackageReference Include="NAudio" Version="2.3.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Bantz.Core/Bantz.Core.csproj" />
     <ProjectReference Include="../Bantz.App/Bantz.App.csproj" />
-    <ProjectReference Include="../../external/CupriFace/src/CupriFace.Shell/CupriFace.Shell.csproj" />
   </ItemGroup>
 </Project>

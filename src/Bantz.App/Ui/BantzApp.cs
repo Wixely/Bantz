@@ -77,8 +77,8 @@ public sealed class BantzApp : CupriApp
     public IReadOnlyList<byte[]> RecordingIconFrames => _recordingIconFrames;
     public override object Model => _model;
     public override double RefreshIntervalSeconds => 0.1;
-    protected override CupriSource MarkupSource => Assets.Bantz.Html;
-    protected override CupriSource StyleSource => Assets.Bantz.Css;
+    protected override CupriSource MarkupSource => EmbeddedAsset("Assets/Bantz.html");
+    protected override CupriSource StyleSource => EmbeddedAsset("Assets/Bantz.css");
 
     public override PresentInfo Present(float windowWidth, float windowHeight)
     {

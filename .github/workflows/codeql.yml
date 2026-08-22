@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
   security-events: write
 
 env:
@@ -22,8 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-        with:
-          submodules: recursive
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.300
@@ -32,6 +31,9 @@ jobs:
           languages: csharp
           build-mode: manual
       - name: Restore
+        env:
+          CUPRIFACE_GITHUB_USER: ${{ github.actor }}
+          CUPRIFACE_GITHUB_TOKEN: ${{ github.token }}
         run: dotnet restore Bantz.slnx -p:NuGetAudit=true -p:NuGetAuditMode=all
       - name: Build
         run: dotnet build Bantz.slnx -c Release --no-restore
