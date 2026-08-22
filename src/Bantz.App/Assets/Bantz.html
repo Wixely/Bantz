@@ -66,12 +66,12 @@
 
   <section class="main-page" style="display:{{MainDisplay}}">
     <section class="record-zone">
-      <div class="record {{StateClass}}" role="button" aria-label="Hold to record speech" data-ptt="main">
+      <div class="record {{StateClass}} {{RecordShortcutClass}}" role="button" aria-label="Hold to record speech" data-ptt="main">
         <div class="record-topline"><span class="privacy-dot"></span><span>ON-DEVICE DICTATION</span></div>
         <div class="record-core">
-          <div class="wave-bars left-bars"><span></span><span></span><span></span></div>
+          <div class="wave-bars left-bars"><span style="transform:scaleY({{RecordingBarOneScale}})"></span><span style="transform:scaleY({{RecordingBarTwoScale}})"></span><span style="transform:scaleY({{RecordingBarThreeScale}})"></span></div>
           <div class="mic-emblem"><div class="mic-vector" data-cupri-icon="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21H8v2h8v-2h-3v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" aria-hidden="true"></div></div>
-          <div class="wave-bars right-bars"><span></span><span></span><span></span></div>
+          <div class="wave-bars right-bars"><span style="transform:scaleY({{RecordingBarThreeScale}})"></span><span style="transform:scaleY({{RecordingBarTwoScale}})"></span><span style="transform:scaleY({{RecordingBarOneScale}})"></span></div>
         </div>
         <strong>{{RecordLabel}}</strong>
         <span class="record-hint">{{RecordHint}}</span>
@@ -98,7 +98,7 @@
     </section>
 
     <footer style="display:{{FooterDisplay}}">
-      <span>Keyboard and gamepad shortcuts are available anywhere.</span>
+      <span class="{{ShortcutFooterClass}}">{{ShortcutFooterText}}</span>
     </footer>
   </section>
 
@@ -112,6 +112,7 @@
       <div class="config-tab config-tab-settings {{SettingsTabClass}}" role="tab" aria-selected="{{SettingsTabSelected}}">Settings</div>
       <div class="config-tab config-tab-keybinds {{KeybindsTabClass}}" role="tab" aria-selected="{{KeybindsTabSelected}}">Keybinds</div>
       <div class="config-tab config-tab-diagnostics {{DiagnosticsTabClass}}" role="tab" aria-selected="{{DiagnosticsTabSelected}}">Diagnostics</div>
+      <div class="config-tab config-tab-about {{AboutTabClass}}" role="tab" aria-selected="{{AboutTabSelected}}">About</div>
     </nav>
 
     <section class="settings-panel config-body" style="display:{{SettingsTabDisplay}}">
@@ -150,10 +151,17 @@
           <span class="seconds">seconds</span>
         </div>
       </div>
+      <div class="setting-row tray-visibility-row" style="display:{{TraySettingsDisplay}}">
+        <div><strong>Tray icon visibility</strong><span>Choose whether Windows keeps Bantz outside the overflow menu.</span></div>
+        <cupri-button class="tray-icon-settings" variant="ghost">Always show tray icon…</cupri-button>
+      </div>
     </section>
 
     <section class="bindings-panel keybinds-panel config-body" style="display:{{KeybindsTabDisplay}}">
-      <div class="section-heading"><div><strong>Hold-to-talk inputs</strong><span>Map keyboard, gamepad, or mouse buttons to dictation.</span></div></div>
+      <div class="section-heading">
+        <div><strong>Hold-to-talk inputs</strong><span>Map keyboard, gamepad, or mouse buttons to dictation.</span></div>
+        <cupri-button class="advanced-bindings" variant="ghost" aria-expanded="{{AdvancedBindingsExpanded}}">Advanced</cupri-button>
+      </div>
       <div class="binding-empty" style="display:{{EmptyBindingsDisplay}};height:{{BindingsListHeight}}px">
         <cupri-icon name="info" size="18"></cupri-icon>
         <div><strong>No inputs assigned</strong><span>Add a keyboard, gamepad, or mouse button.</span></div>
@@ -164,14 +172,40 @@
           <cupri-button variant="ghost" data-remove-binding="{{Id}}">Remove</cupri-button>
         </div>
       </div>
-      <div class="capture-message" style="display:{{CaptureDisplay}}" aria-live="polite">{{CaptureState}}</div>
+      <div class="capture-message" style="display:{{PrimaryCaptureDisplay}}" aria-live="polite">{{CaptureState}}</div>
       <div class="binding-actions">
         <cupri-button class="add-binding">Add input</cupri-button>
-        <cupri-button class="cancel-capture" variant="ghost" style="display:{{CancelCaptureDisplay}}">Cancel</cupri-button>
+        <cupri-button class="cancel-capture" variant="ghost" style="display:{{PrimaryCancelCaptureDisplay}}">Cancel</cupri-button>
         <cupri-button class="undo-binding" variant="ghost" style="display:{{UndoDisplay}}">Undo</cupri-button>
         <cupri-button class="restore-bindings" variant="ghost">Reset defaults</cupri-button>
       </div>
     </section>
+
+    <cupri-dialog class="advanced-bindings-dialog" open="{{AdvancedBindingsExpanded}}" blur="true" aria-labelledby="advanced-keybindings-title">
+      <div class="advanced-dialog-heading">
+        <div><span class="eyebrow">KEYBINDS</span><h3 id="advanced-keybindings-title">Advanced shortcuts</h3></div>
+        <cupri-button class="advanced-dialog-close" variant="ghost" data-cupri-dismiss="true">Close</cupri-button>
+      </div>
+      <div class="advanced-shortcuts">
+        <div class="advanced-setting-row">
+          <div><strong>PTT shortcuts</strong><span class="shortcut-state {{ShortcutStateClass}}">{{ShortcutStateLabel}}</span></div>
+          <cupri-switch checked="{{ShortcutsEnabled}}" aria-label="Enable PTT shortcuts"></cupri-switch>
+        </div>
+        <div class="advanced-setting-row toggle-binding-row">
+          <div><strong>Enable/disable shortcuts</strong><span>{{ShortcutToggleBindingName}}</span></div>
+          <cupri-button class="set-shortcut-toggle">{{ShortcutToggleButtonLabel}}</cupri-button>
+          <cupri-button class="remove-shortcut-toggle" variant="ghost" style="display:{{ShortcutToggleRemoveDisplay}}">Remove</cupri-button>
+        </div>
+        <div class="shortcut-info" role="button" aria-expanded="{{ShortcutInfoExpanded}}">
+          <div><cupri-icon name="info" size="13"></cupri-icon><strong>{{ShortcutInfoLabel}}</strong></div>
+          <span class="shortcut-info-copy" style="display:{{ShortcutInfoDisplay}}">Bantz consumes assigned global inputs, so they cannot perform their usual action while PTT shortcuts are enabled. Turn shortcuts off when you need mouse wheel-click, Back, Forward, or another assigned input, then turn them back on to dictate. The enable/disable shortcut remains active until removed here.</span>
+        </div>
+      </div>
+      <div class="advanced-capture-row" style="display:{{AdvancedCaptureDisplay}}">
+        <div class="capture-message" aria-live="polite">{{CaptureState}}</div>
+        <cupri-button class="cancel-capture" variant="ghost" style="display:{{AdvancedCancelCaptureDisplay}}">Cancel</cupri-button>
+      </div>
+    </cupri-dialog>
 
     <div class="diagnostics-body config-body" style="display:{{DiagnosticsTabDisplay}}">
       <section class="diagnostic-hero">
@@ -191,5 +225,19 @@
       </section>
       <div class="diagnostic-note">Audio stays on this device. Network access is used only to download the model when it is missing.</div>
     </div>
+
+    <section class="about-body config-body" style="display:{{AboutTabDisplay}}">
+      <div class="about-card">
+        <cupri-image class="about-icon" src="Assets/BantzIcon.png" fit="contain" alt="Bantz microphone logo"></cupri-image>
+        <span class="eyebrow">ABOUT BANTZ</span>
+        <h3>Private dictation, built in the open.</h3>
+        <p>Bantz turns speech into text locally on your device. Explore the source, report an issue, or contribute on GitHub.</p>
+        <a class="about-github-link" href="https://github.com/Wixely/Bantz">
+          <span><strong>View Bantz on GitHub</strong><small>Source code, releases, and issue tracking</small></span>
+          <cupri-icon name="external" size="16"></cupri-icon>
+        </a>
+        <div class="about-meta"><span>Version {{AppVersion}}</span><span>MIT licensed</span></div>
+      </div>
+    </section>
   </section>
 </main>

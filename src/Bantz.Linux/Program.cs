@@ -37,7 +37,12 @@ if (hasRuntimeOverride)
 
 WhisperTranscriptionEngine.ConfigureRuntime(selectedRuntime, runtimeManager);
 var model = new BantzModel(settings);
-using var recorder = new LinuxAudioRecorder();
+if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
+{
+    model.ShortcutsEnabled = false;
+}
+var signalAnalyzer = new AudioSignalAnalyzer();
+using var recorder = new LinuxAudioRecorder(signalAnalyzer);
 using var engine = new WhisperTranscriptionEngine(() => modelOverride ?? storage.ModelPath);
 if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 {
@@ -53,8 +58,10 @@ using var workflow = new DictationWorkflow(
     new SystemAsyncDelay(),
     () => model.AutoEnter,
     model.DelayFor,
-    shouldAutomaticallyWrite: () => model.AutoWrite);
-var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage);
+    shouldAutomaticallyWrite: () => model.AutoWrite,
+    audioSignalSummary: () => signalAnalyzer.Summary);
+var initialWindowSize = LinuxDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
+var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, signalAnalyzer, initialWindowSize);
 if (!storage.IsSelected)
 {
     model.Page = "storage";
@@ -65,9 +72,13 @@ else if (settings.Runtime is null || !engine.IsModelAvailable || !runtimeManager
 }
 
 var requestedPage = ArgumentValue(args, "--page");
-if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
+    model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&
+        args.Contains("--advanced", StringComparer.OrdinalIgnoreCase);
+    model.ShortcutInfoExpanded = model.AdvancedBindingsExpanded &&
+        args.Contains("--shortcut-info", StringComparer.OrdinalIgnoreCase);
     if (requestedPage == "diagnostics")
     {
         app.RefreshDiagnostics();

@@ -37,7 +37,8 @@ public sealed class DictationWorkflow(
     Func<bool> shouldPressEnter,
     Func<ActivationKind, int>? delaySeconds = null,
     TimeProvider? timeProvider = null,
-    Func<bool>? shouldAutomaticallyWrite = null) : IDisposable
+    Func<bool>? shouldAutomaticallyWrite = null,
+    Func<AudioSignalSummary>? audioSignalSummary = null) : IDisposable
 {
     public static readonly TimeSpan MinimumRecordingDuration = TimeSpan.FromSeconds(1.5);
 
@@ -156,6 +157,17 @@ public sealed class DictationWorkflow(
                     DictationState.Ready,
                     null,
                     "Too short — hold for at least 1.5 seconds",
+                    _snapshot.Transcript));
+                return;
+            }
+
+            if (audioSignalSummary is not null &&
+                !AudioSignalAnalyzer.HasMeaningfulSound(audioSignalSummary()))
+            {
+                PublishWithPending(new(
+                    DictationState.Ready,
+                    null,
+                    "No sound detected — recording was discarded",
                     _snapshot.Transcript));
                 return;
             }

@@ -4,7 +4,7 @@ using NAudio.Wave;
 
 namespace Bantz.Platform.Windows;
 
-public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
+public sealed class WindowsAudioRecorder(AudioSignalAnalyzer signalAnalyzer) : IAudioRecorder, IDisposable
 {
     private readonly object _sync = new();
     private WaveInEvent? _input;
@@ -25,6 +25,7 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
             }
 
             _pcm = new MemoryStream();
+            signalAnalyzer.Reset();
             _stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _input = new WaveInEvent
             {
@@ -73,7 +74,7 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
             }
         }
 
-        return CreateWaveStream(pcm, 16_000, 1, 16);
+        return PcmWave.CreateStream(pcm);
     }
 
     public void Dispose()
@@ -108,6 +109,8 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
         {
             _pcm?.Write(eventArgs.Buffer, 0, eventArgs.BytesRecorded);
         }
+
+        signalAnalyzer.AnalyzePcm16(eventArgs.Buffer.AsSpan(0, eventArgs.BytesRecorded));
     }
 
     private void OnRecordingStopped(object? sender, StoppedEventArgs eventArgs)
@@ -137,30 +140,4 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
         _stopped = null;
     }
 
-    private static MemoryStream CreateWaveStream(byte[] pcm, int sampleRate, short channels, short bitsPerSample)
-    {
-        var stream = new MemoryStream(capacity: checked(pcm.Length + 44));
-        using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
-        {
-            var blockAlign = checked((short)(channels * bitsPerSample / 8));
-            var bytesPerSecond = checked(sampleRate * blockAlign);
-            writer.Write("RIFF"u8);
-            writer.Write(checked(36 + pcm.Length));
-            writer.Write("WAVE"u8);
-            writer.Write("fmt "u8);
-            writer.Write(16);
-            writer.Write((short)1);
-            writer.Write(channels);
-            writer.Write(sampleRate);
-            writer.Write(bytesPerSecond);
-            writer.Write(blockAlign);
-            writer.Write(bitsPerSample);
-            writer.Write("data"u8);
-            writer.Write(pcm.Length);
-            writer.Write(pcm);
-        }
-
-        stream.Position = 0;
-        return stream;
-    }
 }

@@ -37,6 +37,8 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
 
     private readonly object _sync = new();
     private readonly Func<IReadOnlyList<InputBinding>> _bindingsProvider;
+    private readonly Func<bool> _shortcutsEnabledProvider;
+    private readonly Func<InputBinding?> _shortcutToggleBindingProvider;
     private readonly HookProcedure _keyboardProcedure;
     private readonly HookProcedure _mouseProcedure;
     private readonly System.Threading.Timer _gamepadTimer;
@@ -46,14 +48,22 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
     private InputBinding? _activeKeyboard;
     private InputBinding? _activeMouse;
     private (uint Controller, InputBinding Binding)? _activeGamepad;
+    private InputBinding? _activeToggleKeyboard;
+    private InputBinding? _activeToggleMouse;
+    private (uint Controller, InputBinding Binding)? _activeToggleGamepad;
     private uint? _capturedMouseRelease;
     private bool _capturing;
     private bool _disposed;
     private int _gamepadPollActive;
 
-    public WindowsHoldInputMonitor(Func<IReadOnlyList<InputBinding>> bindingsProvider)
+    public WindowsHoldInputMonitor(
+        Func<IReadOnlyList<InputBinding>> bindingsProvider,
+        Func<bool> shortcutsEnabledProvider,
+        Func<InputBinding?> shortcutToggleBindingProvider)
     {
         _bindingsProvider = bindingsProvider;
+        _shortcutsEnabledProvider = shortcutsEnabledProvider;
+        _shortcutToggleBindingProvider = shortcutToggleBindingProvider;
         _keyboardProcedure = KeyboardCallback;
         _mouseProcedure = MouseCallback;
         _keyboardHook = SetWindowsHookEx(KeyboardHook, _keyboardProcedure, nint.Zero, 0);
@@ -69,6 +79,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
 
     public event Action? HotkeyPressed;
     public event Action? HotkeyReleased;
+    public event Action? ShortcutTogglePressed;
     public event Action? LeftMouseReleased;
     public event Action<InputBinding>? BindingCaptured;
     public event Action? CaptureCancelled;
@@ -77,7 +88,8 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
     {
         lock (_sync)
         {
-            if (_capturing || _activeKeyboard is not null || _activeMouse is not null || _activeGamepad is not null)
+            if (_capturing || _activeKeyboard is not null || _activeMouse is not null || _activeGamepad is not null ||
+                _activeToggleKeyboard is not null || _activeToggleMouse is not null || _activeToggleGamepad is not null)
             {
                 return false;
             }
@@ -132,6 +144,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
     {
         Action? notification = null;
         InputBinding? captured = null;
+        var toggleShortcuts = false;
         var suppress = false;
 
         if (code >= 0)
@@ -156,6 +169,14 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
                         captured = CreateKeyboardBinding(virtualKey, CurrentModifiers());
                     }
                 }
+                else if (_activeToggleKeyboard is { } activeToggle && virtualKey == activeToggle.Code)
+                {
+                    suppress = true;
+                    if (isUp)
+                    {
+                        _activeToggleKeyboard = null;
+                    }
+                }
                 else if (_activeKeyboard is { } active && virtualKey == active.Code)
                 {
                     suppress = true;
@@ -168,15 +189,28 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
                 else if (isDown && !IsModifier(virtualKey))
                 {
                     var modifiers = CurrentModifiers();
-                    var binding = GetBindings().FirstOrDefault(candidate =>
-                        candidate.Device == InputDevice.Keyboard &&
-                        candidate.Code == virtualKey &&
-                        candidate.Modifiers == modifiers);
-                    if (binding is not null)
+                    var toggleBinding = GetShortcutToggleBinding();
+                    if (toggleBinding is not null &&
+                        toggleBinding.Device == InputDevice.Keyboard &&
+                        toggleBinding.Code == virtualKey &&
+                        toggleBinding.Modifiers == modifiers)
                     {
-                        _activeKeyboard = binding;
+                        _activeToggleKeyboard = toggleBinding;
                         suppress = true;
-                        notification = HotkeyPressed;
+                        toggleShortcuts = true;
+                    }
+                    else if (GetShortcutsEnabled())
+                    {
+                        var binding = GetBindings().FirstOrDefault(candidate =>
+                            candidate.Device == InputDevice.Keyboard &&
+                            candidate.Code == virtualKey &&
+                            candidate.Modifiers == modifiers);
+                        if (binding is not null)
+                        {
+                            _activeKeyboard = binding;
+                            suppress = true;
+                            notification = HotkeyPressed;
+                        }
                     }
                 }
             }
@@ -188,6 +222,11 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         }
         else
         {
+            if (toggleShortcuts)
+            {
+                ShortcutTogglePressed?.Invoke();
+            }
+
             notification?.Invoke();
         }
 
@@ -214,6 +253,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
 
         Action? notification = null;
         InputBinding? captured = null;
+        var toggleShortcuts = false;
         var suppress = false;
         var overBantz = IsBantzWindowAt(mouse.Point);
         lock (_sync)
@@ -224,6 +264,14 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
                 if (isUp)
                 {
                     _capturedMouseRelease = null;
+                }
+            }
+            else if (_activeToggleMouse is { } activeToggle && activeToggle.Code == mouseCode)
+            {
+                suppress = true;
+                if (isUp)
+                {
+                    _activeToggleMouse = null;
                 }
             }
             else if (_activeMouse is { } active && active.Code == mouseCode)
@@ -244,15 +292,29 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
             }
             else if (!overBantz && isDown)
             {
-                var binding = GetBindings().FirstOrDefault(candidate =>
-                    candidate.Device == InputDevice.Mouse &&
-                    candidate.Code == mouseCode &&
-                    candidate.Modifiers == CurrentModifiers());
-                if (binding is not null)
+                var modifiers = CurrentModifiers();
+                var toggleBinding = GetShortcutToggleBinding();
+                if (toggleBinding is not null &&
+                    toggleBinding.Device == InputDevice.Mouse &&
+                    toggleBinding.Code == mouseCode &&
+                    toggleBinding.Modifiers == modifiers)
                 {
-                    _activeMouse = binding;
+                    _activeToggleMouse = toggleBinding;
                     suppress = true;
-                    notification = HotkeyPressed;
+                    toggleShortcuts = true;
+                }
+                else if (GetShortcutsEnabled())
+                {
+                    var binding = GetBindings().FirstOrDefault(candidate =>
+                        candidate.Device == InputDevice.Mouse &&
+                        candidate.Code == mouseCode &&
+                        candidate.Modifiers == modifiers);
+                    if (binding is not null)
+                    {
+                        _activeMouse = binding;
+                        suppress = true;
+                        notification = HotkeyPressed;
+                    }
                 }
             }
         }
@@ -263,6 +325,11 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         }
         else
         {
+            if (toggleShortcuts)
+            {
+                ShortcutTogglePressed?.Invoke();
+            }
+
             notification?.Invoke();
         }
 
@@ -298,6 +365,7 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
 
                 Action? notification = null;
                 InputBinding? captured = null;
+                var toggleShortcuts = false;
                 lock (_sync)
                 {
                     if (_capturing && newlyPressed != 0)
@@ -311,20 +379,36 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
                             DisplayName = GamepadName(code),
                         };
                     }
+                    else if (_activeToggleGamepad is { } activeToggle && activeToggle.Controller == controller &&
+                             (buttons & activeToggle.Binding.Code) == 0)
+                    {
+                        _activeToggleGamepad = null;
+                    }
                     else if (_activeGamepad is { } active && active.Controller == controller &&
                              (buttons & active.Binding.Code) == 0)
                     {
                         _activeGamepad = null;
                         notification = HotkeyReleased;
                     }
-                    else if (_activeGamepad is null && newlyPressed != 0)
+                    else if (_activeGamepad is null && _activeToggleGamepad is null && newlyPressed != 0)
                     {
-                        var binding = GetBindings().FirstOrDefault(candidate =>
-                            candidate.Device == InputDevice.Gamepad && (newlyPressed & candidate.Code) != 0);
-                        if (binding is not null)
+                        var toggleBinding = GetShortcutToggleBinding();
+                        if (toggleBinding is not null &&
+                            toggleBinding.Device == InputDevice.Gamepad &&
+                            (newlyPressed & toggleBinding.Code) != 0)
                         {
-                            _activeGamepad = (controller, binding);
-                            notification = HotkeyPressed;
+                            _activeToggleGamepad = (controller, toggleBinding);
+                            toggleShortcuts = true;
+                        }
+                        else if (GetShortcutsEnabled())
+                        {
+                            var binding = GetBindings().FirstOrDefault(candidate =>
+                                candidate.Device == InputDevice.Gamepad && (newlyPressed & candidate.Code) != 0);
+                            if (binding is not null)
+                            {
+                                _activeGamepad = (controller, binding);
+                                notification = HotkeyPressed;
+                            }
                         }
                     }
                 }
@@ -336,6 +420,11 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
                 }
                 else
                 {
+                    if (toggleShortcuts)
+                    {
+                        ShortcutTogglePressed?.Invoke();
+                    }
+
                     notification?.Invoke();
                 }
             }
@@ -355,6 +444,30 @@ public sealed partial class WindowsHoldInputMonitor : IDisposable
         catch (InvalidOperationException)
         {
             return [];
+        }
+    }
+
+    private bool GetShortcutsEnabled()
+    {
+        try
+        {
+            return _shortcutsEnabledProvider();
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+    }
+
+    private InputBinding? GetShortcutToggleBinding()
+    {
+        try
+        {
+            return _shortcutToggleBindingProvider()?.Copy();
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
         }
     }
 

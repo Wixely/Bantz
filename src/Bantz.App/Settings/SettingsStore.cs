@@ -78,5 +78,16 @@ public sealed class SettingsStore
             .GroupBy(binding => (binding.Device, binding.Code, binding.Modifiers))
             .Select(group => group.First())
             .ToList();
+        if (settings.ShortcutToggleBinding?.Code == 0)
+        {
+            settings.ShortcutToggleBinding = null;
+        }
+
+        if (settings.ShortcutToggleBinding is { } toggleBinding)
+        {
+            settings.Bindings = settings.Bindings
+                .Where(binding => !binding.SameInput(toggleBinding))
+                .ToList();
+        }
     }
 }

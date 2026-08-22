@@ -53,6 +53,15 @@ public sealed class InputBinding
         Modifiers = KeyboardModifiers.Control | KeyboardModifiers.Shift,
         DisplayName = "Ctrl + Shift + Space",
     };
+
+    public static InputBinding DefaultShortcutToggle() => new()
+    {
+        Id = "default-ctrl-t-shortcut-toggle",
+        Device = InputDevice.Keyboard,
+        Code = 0x54,
+        Modifiers = KeyboardModifiers.Control,
+        DisplayName = "Ctrl + T",
+    };
 }
 
 public sealed class AppSettings
@@ -65,6 +74,8 @@ public sealed class AppSettings
     public int ButtonDelaySeconds { get; set; } = 5;
     public bool ShortcutDelayEnabled { get; set; }
     public int ShortcutDelaySeconds { get; set; }
+    public bool ShortcutsEnabled { get; set; }
+    public InputBinding? ShortcutToggleBinding { get; set; } = InputBinding.DefaultShortcutToggle();
     public List<InputBinding> Bindings { get; set; } = [InputBinding.DefaultKeyboard()];
 
     public static AppSettings Defaults() => new();

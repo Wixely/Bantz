@@ -18,8 +18,15 @@ public sealed class BantzApp : CupriApp
     private readonly WhisperTranscriptionEngine _engine;
     private readonly WhisperRuntimeManager _runtimeManager;
     private readonly AppStorage _storage;
+    private readonly byte[] _enabledIcon;
+    private readonly byte[] _disabledIcon;
+    private readonly IReadOnlyList<byte[]> _recordingIconFrames;
+    private readonly InitialWindowSize _initialWindowSize;
     private List<InputBinding>? _bindingUndo;
+    private BindingCapturePurpose _bindingCapturePurpose;
     private bool _modelDownloadInProgress;
+    private bool _iconShortcutsEnabled;
+    private bool _isRecording;
     private string _latestTranscript = "";
 
     public BantzApp(
@@ -28,7 +35,9 @@ public sealed class BantzApp : CupriApp
         SettingsStore settingsStore,
         WhisperTranscriptionEngine engine,
         WhisperRuntimeManager runtimeManager,
-        AppStorage storage)
+        AppStorage storage,
+        AudioSignalAnalyzer signalAnalyzer,
+        InitialWindowSize? initialWindowSize = null)
     {
         _workflow = workflow;
         _model = model;
@@ -36,23 +45,36 @@ public sealed class BantzApp : CupriApp
         _engine = engine;
         _runtimeManager = runtimeManager;
         _storage = storage;
+        _initialWindowSize = initialWindowSize is { Width: > 0, Height: > 0 } size
+            ? size
+            : PreferredWindowSize;
+        _enabledIcon = EmbeddedAsset("Assets/BantzIcon.png").ReadBytes();
+        _disabledIcon = ShortcutStateIcon.CreateDisabled(_enabledIcon);
+        _recordingIconFrames = RecordingStateIcon.CreateFrames(_enabledIcon);
+        _iconShortcutsEnabled = model.ShortcutsEnabled;
         _workflow.SnapshotChanged += ApplySnapshot;
+        signalAnalyzer.FrameAnalyzed += ApplyAudioSignal;
         _model.SettingsChanged += SaveSettings;
+        _model.AdvancedBindingsVisibilityChanged += HandleAdvancedBindingsVisibilityChanged;
         UpdateModelSetup();
         ApplySnapshot(_workflow.Snapshot);
     }
 
     public Func<bool>? BeginBindingCapture { get; set; }
     public Action? CancelBindingCapture { get; set; }
+    public event Action? ShortcutIconChanged;
+    public event Action<bool>? RecordingStateChanged;
 
     public override string Title => "Bantz";
-    public override int Width => 1170;
-    public override int Height => 1300;
+    public static InitialWindowSize PreferredWindowSize { get; } = new(1170, 1300);
+    public override int Width => _initialWindowSize.Width;
+    public override int Height => _initialWindowSize.Height;
     public override SKColor Background => new(0x0d, 0x10, 0x17);
     public override bool DarkWindowChrome => true;
     public override bool TopMost => _model.AlwaysOnTop;
     public override bool CloseToTray => true;
-    public override byte[] Icon => EmbeddedAsset("Assets/BantzIcon.png").ReadBytes();
+    public override byte[] Icon => _model.ShortcutsEnabled ? _enabledIcon : _disabledIcon;
+    public IReadOnlyList<byte[]> RecordingIconFrames => _recordingIconFrames;
     public override object Model => _model;
     public override double RefreshIntervalSeconds => 0.1;
     protected override CupriSource MarkupSource => Assets.Bantz.Html;
@@ -92,20 +114,27 @@ public sealed class BantzApp : CupriApp
         document.OnClick(".config-tab-settings", _ => OpenConfigTab("settings"));
         document.OnClick(".config-tab-keybinds", _ => OpenConfigTab("keybinds"));
         document.OnClick(".config-tab-diagnostics", _ => OpenDiagnostics());
+        document.OnClick(".config-tab-about", _ => OpenConfigTab("about"));
         document.OnClick(".diagnostics-refresh", _ => RefreshDiagnostics());
         document.OnClick(".model-path-open", _ => OpenModelFolder());
+        document.OnClick(".tray-icon-settings", _ => OpenTrayIconSettings());
         document.OnClick(".config-back", _ =>
         {
             CancelBindingCapture?.Invoke();
+            _bindingCapturePurpose = BindingCapturePurpose.None;
             _model.CancelCaptureDisplay = "none";
             _model.CaptureDisplay = "none";
             _model.Page = "main";
             SaveSettings();
         });
-        document.OnClick(".add-binding", _ => StartCapture());
+        document.OnClick(".add-binding", _ => StartCapture(BindingCapturePurpose.HoldToTalk));
         document.OnClick(".cancel-capture", _ => CancelBindingCapture?.Invoke());
         document.OnClick(".undo-binding", _ => UndoBindingChange());
         document.OnClick(".restore-bindings", _ => RestoreDefaultBinding());
+        document.OnClick(".advanced-bindings", _ => ToggleAdvancedBindings());
+        document.OnClick(".shortcut-info", _ => _model.ShortcutInfoExpanded = !_model.ShortcutInfoExpanded);
+        document.OnClick(".set-shortcut-toggle", _ => StartCapture(BindingCapturePurpose.ShortcutToggle));
+        document.OnClick(".remove-shortcut-toggle", _ => RemoveShortcutToggleBinding());
         document.OnAction("data-remove-binding", action =>
         {
             RemoveBinding(action.Value);
@@ -219,7 +248,9 @@ public sealed class BantzApp : CupriApp
     {
         if (_model.Page == "keybinds" && page != "keybinds")
         {
+            _model.AdvancedBindingsExpanded = false;
             CancelBindingCapture?.Invoke();
+            _bindingCapturePurpose = BindingCapturePurpose.None;
             _model.CancelCaptureDisplay = "none";
         }
 
@@ -270,10 +301,56 @@ public sealed class BantzApp : CupriApp
         }
     }
 
+    private static void OpenTrayIconSettings()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "ms-settings:taskbar",
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            // Windows owns this settings surface. If the URI handler is unavailable, leave Bantz running.
+        }
+    }
+
     public void BindingCaptured(InputBinding binding)
     {
+        var capturePurpose = _bindingCapturePurpose;
+        _bindingCapturePurpose = BindingCapturePurpose.None;
         _model.CancelCaptureDisplay = "none";
         var current = _model.GetBindingsSnapshot();
+        if (capturePurpose == BindingCapturePurpose.ShortcutToggle)
+        {
+            if (current.Any(existing => existing.SameInput(binding)))
+            {
+                _model.CaptureState = "That input is already assigned to hold-to-talk.";
+                _model.CaptureDisplay = "block";
+                return;
+            }
+
+            _model.SetShortcutToggleBinding(binding);
+            _model.CaptureState = $"{binding.DisplayName} now enables or disables PTT shortcuts.";
+            _model.CaptureDisplay = "block";
+            SaveSettings();
+            return;
+        }
+
+        if (_model.GetShortcutToggleBindingSnapshot()?.SameInput(binding) == true)
+        {
+            _model.CaptureState = "That input is reserved for enabling or disabling shortcuts.";
+            _model.CaptureDisplay = "block";
+            return;
+        }
+
         if (current.Any(existing => existing.SameInput(binding)))
         {
             _model.CaptureState = "That input is already assigned.";
@@ -290,25 +367,77 @@ public sealed class BantzApp : CupriApp
 
     public void BindingCaptureCancelled()
     {
+        _bindingCapturePurpose = BindingCapturePurpose.None;
         _model.CancelCaptureDisplay = "none";
         _model.CaptureState = "Capture cancelled. Nothing changed.";
         _model.CaptureDisplay = "block";
     }
 
-    private void StartCapture()
+    private void StartCapture(BindingCapturePurpose purpose)
     {
         if (BeginBindingCapture?.Invoke() == true)
         {
+            _bindingCapturePurpose = purpose;
             _model.CancelCaptureDisplay = "block";
-            _model.CaptureState = "Press a key, gamepad button, or mouse button outside Bantz. Escape cancels.";
+            _model.CaptureState = purpose == BindingCapturePurpose.ShortcutToggle
+                ? "Press the input that should enable or disable PTT shortcuts. Escape cancels."
+                : "Press a key, gamepad button, or mouse button outside Bantz. Escape cancels.";
             _model.CaptureDisplay = "block";
         }
         else
         {
+            _bindingCapturePurpose = BindingCapturePurpose.None;
             _model.CancelCaptureDisplay = "none";
             _model.CaptureState = "Finish the current recording before changing an input.";
             _model.CaptureDisplay = "block";
         }
+    }
+
+    private void ToggleAdvancedBindings()
+    {
+        if (!_model.AdvancedBindingsExpanded)
+        {
+            CancelBindingCapture?.Invoke();
+            _bindingCapturePurpose = BindingCapturePurpose.None;
+            _model.CancelCaptureDisplay = "none";
+            _model.CaptureDisplay = "none";
+        }
+
+        _model.AdvancedBindingsExpanded = !_model.AdvancedBindingsExpanded;
+    }
+
+    private void HandleAdvancedBindingsVisibilityChanged(bool isVisible)
+    {
+        if (isVisible)
+        {
+            return;
+        }
+
+        CancelBindingCapture?.Invoke();
+        _bindingCapturePurpose = BindingCapturePurpose.None;
+        _model.CancelCaptureDisplay = "none";
+        _model.CaptureDisplay = "none";
+    }
+
+    private void RemoveShortcutToggleBinding()
+    {
+        if (_model.GetShortcutToggleBindingSnapshot() is null)
+        {
+            return;
+        }
+
+        _model.SetShortcutToggleBinding(null);
+        _model.CaptureState = "The enable/disable shortcut was removed.";
+        _model.CaptureDisplay = "block";
+        SaveSettings();
+    }
+
+    public void ToggleShortcutsEnabled()
+    {
+        _model.ShortcutsEnabled = !_model.ShortcutsEnabled;
+        var state = _model.ShortcutsEnabled ? "enabled" : "disabled";
+        _model.Status = $"PTT shortcuts {state}";
+        _model.CaptureState = $"PTT shortcuts are {state}.";
     }
 
     private void RemoveBinding(string id)
@@ -362,6 +491,8 @@ public sealed class BantzApp : CupriApp
 
     private void SaveSettings()
     {
+        var iconChanged = _iconShortcutsEnabled != _model.ShortcutsEnabled;
+        _iconShortcutsEnabled = _model.ShortcutsEnabled;
         try
         {
             WhisperTranscriptionEngine.ConfigureRuntime(_model.SelectedRuntime, _runtimeManager);
@@ -372,6 +503,18 @@ public sealed class BantzApp : CupriApp
             _model.CaptureState = "Settings could not be saved; changes remain active for this session.";
             _model.CaptureDisplay = "block";
         }
+
+        if (iconChanged)
+        {
+            ShortcutIconChanged?.Invoke();
+        }
+    }
+
+    private enum BindingCapturePurpose
+    {
+        None,
+        HoldToTalk,
+        ShortcutToggle,
     }
 
     private void CopyTranscript()
@@ -396,6 +539,7 @@ public sealed class BantzApp : CupriApp
 
     private void ApplySnapshot(DictationSnapshot snapshot)
     {
+        var isRecording = snapshot.State == DictationState.Recording;
         _model.Status = snapshot.Status;
         if (snapshot.Transcript.Length > 0)
         {
@@ -411,8 +555,14 @@ public sealed class BantzApp : CupriApp
         _model.CountdownPercent = snapshot.CountdownTotalSeconds > 0
             ? snapshot.CountdownSeconds * 100 / snapshot.CountdownTotalSeconds
             : 0;
-        _model.RecordLabel = snapshot.State == DictationState.Recording ? "LISTENING" : "HOLD TO TALK";
-        _model.RecordHint = snapshot.State == DictationState.Recording ? "Release when you’re done" : "Release to transcribe";
+        _model.RecordLabel = isRecording ? "LISTENING" : "HOLD TO TALK";
+        _model.RecordHint = isRecording ? "Release when you’re done" : "Release to transcribe";
+        if (!isRecording)
+        {
+            _model.RecordingBarOneScale = "0.43";
+            _model.RecordingBarTwoScale = "1.00";
+            _model.RecordingBarThreeScale = "0.67";
+        }
         _model.StateClass = snapshot.State switch
         {
             DictationState.Recording => "recording",
@@ -421,7 +571,23 @@ public sealed class BantzApp : CupriApp
             DictationState.Error => "error",
             _ => "ready",
         };
+
+        if (_isRecording != isRecording)
+        {
+            _isRecording = isRecording;
+            RecordingStateChanged?.Invoke(isRecording);
+        }
     }
+
+    private void ApplyAudioSignal(AudioSignalFrame frame)
+    {
+        _model.RecordingBarOneScale = Scale(frame.FirstBar);
+        _model.RecordingBarTwoScale = Scale(frame.SecondBar);
+        _model.RecordingBarThreeScale = Scale(frame.ThirdBar);
+    }
+
+    private static string Scale(float value) =>
+        value.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
 }
 
 [CupriBindable]
@@ -434,6 +600,11 @@ public sealed partial class BantzModel
     private int _buttonDelaySeconds;
     private bool _shortcutDelayEnabled;
     private int _shortcutDelaySeconds;
+    private bool _shortcutsEnabled;
+    private InputBinding? _shortcutToggleBinding;
+    private bool _advancedBindingsExpanded;
+    private bool _shortcutInfoExpanded;
+    private readonly bool _traySettingsAvailable = OperatingSystem.IsWindows();
     private List<InputBinding> _inputBindings;
     private string _runtimeSelection;
 
@@ -447,6 +618,8 @@ public sealed partial class BantzModel
         _buttonDelaySeconds = Math.Clamp(settings.ButtonDelaySeconds, 0, 10);
         _shortcutDelayEnabled = settings.ShortcutDelayEnabled;
         _shortcutDelaySeconds = Math.Clamp(settings.ShortcutDelaySeconds, 0, 10);
+        _shortcutsEnabled = settings.ShortcutsEnabled;
+        _shortcutToggleBinding = settings.ShortcutToggleBinding?.Copy();
         _inputBindings = settings.Bindings.Select(binding => binding.Copy()).ToList();
         RefreshBindingRows();
     }
@@ -454,19 +627,24 @@ public sealed partial class BantzModel
     public event Action? SettingsChanged;
 
     public string Page { get; set; } = "main";
+    public string AppVersion { get; } = typeof(BantzModel).Assembly.GetName().Version?.ToString(3) ?? "Development";
     public string MainDisplay => Page == "main" ? "flex" : "none";
     public string StorageDisplay => Page == "storage" ? "flex" : "none";
     public string OnboardingDisplay => Page == "onboarding" ? "flex" : "none";
-    public string ConfigDisplay => Page is "settings" or "keybinds" or "diagnostics" ? "flex" : "none";
+    public string ConfigDisplay => Page is "settings" or "keybinds" or "diagnostics" or "about" ? "flex" : "none";
     public string SettingsTabDisplay => Page == "settings" ? "flex" : "none";
     public string KeybindsTabDisplay => Page == "keybinds" ? "flex" : "none";
     public string DiagnosticsTabDisplay => Page == "diagnostics" ? "flex" : "none";
+    public string AboutTabDisplay => Page == "about" ? "flex" : "none";
     public string SettingsTabClass => Page == "settings" ? "selected" : "";
     public string KeybindsTabClass => Page == "keybinds" ? "selected" : "";
     public string DiagnosticsTabClass => Page == "diagnostics" ? "selected" : "";
+    public string AboutTabClass => Page == "about" ? "selected" : "";
     public string SettingsTabSelected => Page == "settings" ? "true" : "false";
     public string KeybindsTabSelected => Page == "keybinds" ? "true" : "false";
     public string DiagnosticsTabSelected => Page == "diagnostics" ? "true" : "false";
+    public string AboutTabSelected => Page == "about" ? "true" : "false";
+    public string TraySettingsDisplay => _traySettingsAvailable ? "flex" : "none";
     public string Status { get; set; } = "Hold to talk";
     public string Transcript { get; set; } = "Your latest transcript will appear here.";
     public string Countdown { get; set; } = "";
@@ -475,15 +653,54 @@ public sealed partial class BantzModel
     public int CountdownPercent { get; set; }
     public string RecordLabel { get; set; } = "HOLD TO TALK";
     public string RecordHint { get; set; } = "Release to transcribe";
+    public string RecordingBarOneScale { get; set; } = "0.43";
+    public string RecordingBarTwoScale { get; set; } = "1.00";
+    public string RecordingBarThreeScale { get; set; } = "0.67";
     public string StateClass { get; set; } = "ready";
+    public string RecordShortcutClass => ShortcutsEnabled ? "" : "shortcuts-disabled";
     public string CaptureState { get; set; } = "Add as many inputs as you like.";
     public string CaptureDisplay { get; set; } = "none";
     public string CancelCaptureDisplay { get; set; } = "none";
     public string UndoDisplay { get; set; } = "none";
-    public int BindingsListHeight => CaptureDisplay == "block" ? 205 : 250;
+    public string PrimaryCaptureDisplay => AdvancedBindingsExpanded ? "none" : CaptureDisplay;
+    public string AdvancedCaptureDisplay => AdvancedBindingsExpanded && CaptureDisplay == "block" ? "flex" : "none";
+    public string PrimaryCancelCaptureDisplay => AdvancedBindingsExpanded ? "none" : CancelCaptureDisplay;
+    public string AdvancedCancelCaptureDisplay => AdvancedBindingsExpanded ? CancelCaptureDisplay : "none";
+    public int BindingsListHeight => PrimaryCaptureDisplay == "block" ? 205 : 250;
     public List<BindingRow> BindingRows { get; set; } = [];
     public string EmptyBindingsDisplay => BindingRows.Count == 0 ? "flex" : "none";
     public string BindingListDisplay => BindingRows.Count == 0 ? "none" : "block";
+    public bool AdvancedBindingsExpanded
+    {
+        get => _advancedBindingsExpanded;
+        set
+        {
+            if (_advancedBindingsExpanded == value)
+            {
+                return;
+            }
+
+            _advancedBindingsExpanded = value;
+            AdvancedBindingsVisibilityChanged?.Invoke(value);
+        }
+    }
+    internal event Action<bool>? AdvancedBindingsVisibilityChanged;
+    public string ShortcutStateLabel => ShortcutsEnabled ? "Enabled" : "Disabled";
+    public string ShortcutStateClass => ShortcutsEnabled ? "enabled" : "disabled";
+    public string ShortcutToggleBindingName => _shortcutToggleBinding?.DisplayName ?? "Not assigned";
+    public string ShortcutToggleButtonLabel => _shortcutToggleBinding is null ? "Set input" : "Change";
+    public string ShortcutToggleRemoveDisplay => _shortcutToggleBinding is null ? "none" : "block";
+    public bool ShortcutInfoExpanded
+    {
+        get => _shortcutInfoExpanded;
+        set => _shortcutInfoExpanded = value;
+    }
+    public string ShortcutInfoDisplay => ShortcutInfoExpanded ? "block" : "none";
+    public string ShortcutInfoLabel => ShortcutInfoExpanded ? "Hide explanation" : "Why use this?";
+    public string ShortcutFooterText => ShortcutsEnabled
+        ? "Keyboard, gamepad, and mouse shortcuts are available anywhere."
+        : "PTT shortcuts are disabled. Use Keybinds > Advanced to re-enable them.";
+    public string ShortcutFooterClass => ShortcutsEnabled ? "" : "shortcuts-disabled";
     public string DiagnosticsStatus { get; set; } = "Checking engine";
     public string DiagnosticsSummary { get; set; } = "Reading the local Whisper configuration.";
     public string DiagnosticsEngine { get; set; } = "whisper.cpp via Whisper.net";
@@ -559,6 +776,12 @@ public sealed partial class BantzModel
         set => Set(ref _shortcutDelaySeconds, Math.Clamp(value, 0, 10));
     }
 
+    public bool ShortcutsEnabled
+    {
+        get => _shortcutsEnabled;
+        set => Set(ref _shortcutsEnabled, value);
+    }
+
     public int DelayFor(ActivationKind activation) => activation switch
     {
         ActivationKind.Button when ButtonDelayEnabled => ButtonDelaySeconds,
@@ -569,11 +792,16 @@ public sealed partial class BantzModel
     public IReadOnlyList<InputBinding> GetBindingsSnapshot() =>
         _inputBindings.Select(binding => binding.Copy()).ToArray();
 
+    public InputBinding? GetShortcutToggleBindingSnapshot() => _shortcutToggleBinding?.Copy();
+
     public void SetBindings(IEnumerable<InputBinding> bindings)
     {
         _inputBindings = bindings.Select(binding => binding.Copy()).ToList();
         RefreshBindingRows();
     }
+
+    public void SetShortcutToggleBinding(InputBinding? binding) =>
+        _shortcutToggleBinding = binding?.Copy();
 
     public AppSettings ToSettings() => new()
     {
@@ -585,6 +813,8 @@ public sealed partial class BantzModel
         ButtonDelaySeconds = ButtonDelaySeconds,
         ShortcutDelayEnabled = ShortcutDelayEnabled,
         ShortcutDelaySeconds = ShortcutDelaySeconds,
+        ShortcutsEnabled = ShortcutsEnabled,
+        ShortcutToggleBinding = _shortcutToggleBinding?.Copy(),
         Bindings = _inputBindings.Select(binding => binding.Copy()).ToList(),
     };
 

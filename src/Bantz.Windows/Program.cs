@@ -17,6 +17,12 @@ if (args.Length == 3 && string.Equals(args[0], "--build-icon", StringComparison.
     return;
 }
 
+if (args.Length == 3 && string.Equals(args[0], "--build-disabled-icon", StringComparison.OrdinalIgnoreCase))
+{
+    File.WriteAllBytes(args[2], ShortcutStateIcon.CreateDisabled(File.ReadAllBytes(args[1])));
+    return;
+}
+
 var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
 var storage = new AppStorage(executableDirectory);
 var settingsStore = new SettingsStore(() => storage.SettingsPath);
@@ -42,7 +48,12 @@ if (hasRuntimeOverride)
 }
 WhisperTranscriptionEngine.ConfigureRuntime(selectedRuntime, runtimeManager);
 var model = new BantzModel(settings);
-using var recorder = new WindowsAudioRecorder();
+if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
+{
+    model.ShortcutsEnabled = false;
+}
+var signalAnalyzer = new AudioSignalAnalyzer();
+using var recorder = new WindowsAudioRecorder(signalAnalyzer);
 using var engine = new WhisperTranscriptionEngine(() => modelOverride ?? storage.ModelPath);
 if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 {
@@ -58,8 +69,10 @@ using var workflow = new DictationWorkflow(
     new SystemAsyncDelay(),
     () => model.AutoEnter,
     model.DelayFor,
-    shouldAutomaticallyWrite: () => model.AutoWrite);
-var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage);
+    shouldAutomaticallyWrite: () => model.AutoWrite,
+    audioSignalSummary: () => signalAnalyzer.Summary);
+var initialWindowSize = WindowsDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
+var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, signalAnalyzer, initialWindowSize);
 if (!storage.IsSelected)
 {
     model.Page = "storage";
@@ -73,9 +86,13 @@ var requestedPage = args
     .SkipWhile(value => !string.Equals(value, "--page", StringComparison.OrdinalIgnoreCase))
     .Skip(1)
     .FirstOrDefault();
-if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
+    model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&
+        args.Contains("--advanced", StringComparer.OrdinalIgnoreCase);
+    model.ShortcutInfoExpanded = model.AdvancedBindingsExpanded &&
+        args.Contains("--shortcut-info", StringComparer.OrdinalIgnoreCase);
     if (requestedPage == "diagnostics")
     {
         app.RefreshDiagnostics();
@@ -89,6 +106,19 @@ if (int.TryParse(requestedCountdown, out var countdown) && countdown is >= 1 and
     model.CountdownPercent = 100;
     model.StateClass = "targeting";
     model.Status = "Focus the field where Bantz should type.";
+}
+
+var recordingPreview = args.Contains("--recording-preview", StringComparer.OrdinalIgnoreCase);
+if (recordingPreview)
+{
+    model.Page = "main";
+    model.StateClass = "recording";
+    model.RecordLabel = "LISTENING";
+    model.RecordHint = "Release when you’re done";
+    model.RecordingBarOneScale = "0.28";
+    model.RecordingBarTwoScale = "0.86";
+    model.RecordingBarThreeScale = "0.52";
+    model.Status = "Listening… release to transcribe";
 }
 
 var snapshotPath = args
@@ -122,11 +152,32 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
     return;
 }
 
-using var input = new WindowsHoldInputMonitor(model.GetBindingsSnapshot);
+using var input = new WindowsHoldInputMonitor(
+    model.GetBindingsSnapshot,
+    () => model.ShortcutsEnabled,
+    model.GetShortcutToggleBindingSnapshot);
 app.BeginBindingCapture = input.BeginCapture;
 app.CancelBindingCapture = input.CancelCapture;
 input.BindingCaptured += app.BindingCaptured;
 input.CaptureCancelled += app.BindingCaptureCancelled;
+input.ShortcutTogglePressed += app.ToggleShortcutsEnabled;
+using var taskbarIcon = new WindowsTaskbarIconController();
+app.ShortcutIconChanged += () => taskbarIcon.SetIdleIcon(app.Icon);
+app.RecordingStateChanged += recording =>
+{
+    if (recording)
+    {
+        taskbarIcon.StartRecording(app.RecordingIconFrames);
+    }
+    else
+    {
+        taskbarIcon.StopRecording(app.Icon);
+    }
+};
+if (recordingPreview)
+{
+    taskbarIcon.StartRecording(app.RecordingIconFrames);
+}
 input.HotkeyPressed += () =>
 {
     if (model.Page is not ("onboarding" or "storage"))
