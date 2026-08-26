@@ -39,6 +39,7 @@ jobs:
           name: test-results
           path: artifacts/test-results/*.trx
           if-no-files-found: warn
+          retention-days: 7
       - name: Upload library packages
         uses: actions/upload-artifact@v7
         with:
@@ -47,6 +48,7 @@ jobs:
             artifacts/packages/*.nupkg
             artifacts/packages/*.snupkg
           if-no-files-found: error
+          retention-days: 3
 
   package:
     name: Package / ${{ matrix.name }}
@@ -87,6 +89,7 @@ jobs:
             artifacts/release/${{ matrix.archive }}
             artifacts/release/${{ matrix.archive }}.sha256
           if-no-files-found: error
+          retention-days: 3
 
   dependency-review:
     name: Dependency review

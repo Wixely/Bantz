@@ -52,6 +52,7 @@ jobs:
             artifacts/packages/*.nupkg
             artifacts/packages/*.snupkg
           if-no-files-found: error
+          retention-days: 1
 
   package:
     name: Package / ${{ matrix.name }}
@@ -91,6 +92,7 @@ jobs:
             artifacts/release/${{ matrix.archive }}
             artifacts/release/${{ matrix.archive }}.sha256
           if-no-files-found: error
+          retention-days: 1
 
   publish:
     name: Publish GitHub release and packages
