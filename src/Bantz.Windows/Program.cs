@@ -1,3 +1,4 @@
+using Bantz;
 using Bantz.Core;
 using Bantz.Capture;
 using Bantz.Input;
@@ -155,6 +156,15 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
     Directory.CreateDirectory(Path.GetDirectoryName(fullSnapshotPath)!);
     using var output = File.Create(fullSnapshotPath);
     encoded.SaveTo(output);
+    return;
+}
+
+var allowMultipleInstances = args.Contains("--allow-multiple-instances", StringComparer.OrdinalIgnoreCase);
+using var instanceLock = allowMultipleInstances
+    ? null
+    : SingleInstanceLock.TryAcquire("Bantz.InteractiveApp");
+if (!allowMultipleInstances && instanceLock is null)
+{
     return;
 }
 

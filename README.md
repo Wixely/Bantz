@@ -60,6 +60,8 @@ dotnet run --project src/Bantz.Windows -- --model C:\models\ggml-base.en.bin
 ```
 
 The `BANTZ_STT_MODEL` environment variable provides the same override. Command-line configuration wins.
+Only one interactive Bantz instance runs by default. Pass `--allow-multiple-instances` to start an
+additional instance, for example when testing two configurations side by side.
 
 The Linux x64 host is experimental. It supports the main hold-to-talk button, local transcription, text insertion, delays, Enter-afterwards, and always-on-top. It requires `glibc` 2.31 or newer and `libstdc++6`. Install `alsa-utils` for recording and either `wtype` (Wayland) or `xdotool` (X11) for text insertion, then run:
 

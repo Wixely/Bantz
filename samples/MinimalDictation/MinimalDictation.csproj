@@ -5,9 +5,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Bantz.Capture" Version="0.2.3" />
-    <PackageReference Include="Bantz.Input" Version="0.2.3" />
-    <PackageReference Include="Bantz.Speech.Abstractions" Version="0.2.3" />
-    <PackageReference Include="Bantz.Speech.Whisper" Version="0.2.3" />
+    <PackageReference Include="Bantz.Capture" Version="0.2.4" />
+    <PackageReference Include="Bantz.Input" Version="0.2.4" />
+    <PackageReference Include="Bantz.Speech.Abstractions" Version="0.2.4" />
+    <PackageReference Include="Bantz.Speech.Whisper" Version="0.2.4" />
   </ItemGroup>
 </Project>
