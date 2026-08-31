@@ -102,6 +102,7 @@ jobs:
     permissions:
       contents: write
       packages: write
+      actions: write
     steps:
       - uses: actions/setup-dotnet@v6
         with:
@@ -147,3 +148,21 @@ jobs:
           $arguments += $files.FullName
           & gh @arguments
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed.' }
+      # The packages and release assets now live in permanent GitHub storage, so the Actions
+      # artifacts are duplicate copies. Keep them when publication fails so a rerun can reuse them.
+      - name: Delete this run's artifacts after publication
+        continue-on-error: true
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $artifacts = gh api --paginate "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID/artifacts" `
+            --jq '.artifacts[] | [.id, .name] | @tsv'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not list release workflow artifacts.' }
+
+          foreach ($artifact in $artifacts) {
+            $id, $name = $artifact -split "`t", 2
+            Write-Host "Deleting $name ($id)"
+            gh api --method DELETE "repos/$env:GITHUB_REPOSITORY/actions/artifacts/$id"
+            if ($LASTEXITCODE -ne 0) { throw "Could not delete artifact '$name' ($id)." }
+          }
