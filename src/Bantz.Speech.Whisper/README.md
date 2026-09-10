@@ -10,3 +10,8 @@ workflow, so always-listening consumers can segment audio themselves.
 Whisper.net's native loader is process-wide. Create as many engines as needed with
 the same runtime choice, but select either CPU or Vulkan once per process before
 the first model is loaded.
+
+`WhisperModelCatalog` lists the models that can be downloaded and `SpeechLanguages` the languages
+they can be asked for. Pass `ModelProvider` and `ModelsRootProvider` to resolve the model file for
+each transcription, and `LanguageProvider` to change language without rebuilding the engine.
+English-only models always transcribe English; `SpeechLanguages.Resolve` applies that rule.

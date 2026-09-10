@@ -70,6 +70,14 @@ public sealed class SettingsStore
             settings.Runtime = null;
         }
 
+        // An unknown model or language means a settings file from a newer build, or one edited by
+        // hand. Fall back rather than failing to start.
+        settings.ModelId = Bantz.Speech.Whisper.WhisperModelCatalog.Resolve(settings.ModelId).Id;
+        var model = Bantz.Speech.Whisper.WhisperModelCatalog.Resolve(settings.ModelId);
+        settings.Language = model.IsMultilingual
+            ? Bantz.Speech.Whisper.SpeechLanguages.Find(settings.Language)?.Code ?? "en"
+            : "en";
+
         if (string.IsNullOrWhiteSpace(settings.CaptureDeviceId))
         {
             settings.CaptureDeviceId = null;

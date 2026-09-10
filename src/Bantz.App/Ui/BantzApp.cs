@@ -115,6 +115,7 @@ public sealed class BantzApp : CupriApp
         document.OnClick(".model-download", pointerEvent => { _ = DownloadOrContinueAsync(); });
         document.OnClick(".config-tab-settings", _ => OpenConfigTab("settings"));
         document.OnClick(".config-tab-input", _ => OpenInputDevices());
+        document.OnClick(".config-tab-models", _ => OpenModels());
         document.OnClick(".input-devices-refresh", _ => RefreshInputDevices());
         document.OnClick(".config-tab-keybinds", _ => OpenConfigTab("keybinds"));
         document.OnClick(".config-tab-diagnostics", _ => OpenDiagnostics());
@@ -147,6 +148,16 @@ public sealed class BantzApp : CupriApp
         document.OnAction("data-select-input-device", action =>
         {
             SelectInputDevice(action.Value);
+            return true;
+        });
+        document.OnAction("data-select-model", action =>
+        {
+            SelectModel(action.Value);
+            return true;
+        });
+        document.OnAction("data-remove-model", action =>
+        {
+            RemoveModel(action.Value);
             return true;
         });
     }
@@ -233,13 +244,13 @@ public sealed class BantzApp : CupriApp
         {
             _model.ModelDownloadPercent = 100;
             _model.ModelDownloadLabel = "Continue";
-            _model.ModelDownloadStatus = "The English Base model is installed and ready.";
+            _model.ModelDownloadStatus = $"{_model.SelectedModel.DisplayName} is installed and ready.";
             return;
         }
 
         _model.ModelDownloadPercent = 0;
         var requiredBytes = (runtimeInstalled ? 0 : WhisperRuntimeManager.DownloadBytes(_model.SelectedRuntime)) +
-            (_engine.IsModelAvailable ? 0 : WhisperTranscriptionEngine.BaseEnglishModelBytes);
+            (_engine.IsModelAvailable ? 0 : _model.SelectedModel.DownloadBytes);
         var downloadMiB = requiredBytes / 1_048_576d;
         _model.ModelDownloadLabel = $"Download {downloadMiB:N0} MiB";
         _model.ModelDownloadStatus = runtimeInstalled
@@ -400,6 +411,105 @@ public sealed class BantzApp : CupriApp
             _model.CaptureState = "Finish the current recording before changing an input.";
             _model.CaptureDisplay = "block";
         }
+    }
+
+    private void OpenModels()
+    {
+        OpenConfigTab("models");
+        RefreshInstalledModels();
+    }
+
+    /// <summary>Re-reads which models are on disk.</summary>
+    public void RefreshInstalledModels()
+    {
+        var installed = new Dictionary<string, long>(StringComparer.Ordinal);
+        foreach (var model in WhisperModelCatalog.All)
+        {
+            try
+            {
+                var file = new FileInfo(_engine.PathFor(model));
+                if (file.Exists)
+                {
+                    installed[model.Id] = file.Length;
+                }
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                // A model we cannot stat is a model we cannot offer to delete.
+            }
+        }
+
+        _model.SetInstalledModels(installed);
+    }
+
+    private void SelectModel(string id)
+    {
+        var model = WhisperModelCatalog.Resolve(id);
+        _model.SelectModel(model.Id);
+        UpdateModelSetup();
+        RefreshInstalledModels();
+        if (_engine.IsInstalled(model))
+        {
+            _model.Status = $"Speech model set to {model.DisplayName}";
+            return;
+        }
+
+        _model.Status = $"Downloading {model.DisplayName}…";
+        _ = DownloadSelectedModelAsync(model);
+    }
+
+    private async Task DownloadSelectedModelAsync(WhisperModel model)
+    {
+        if (_modelDownloadInProgress)
+        {
+            return;
+        }
+
+        _modelDownloadInProgress = true;
+        _model.SetDownloadingModel(model.Id);
+        try
+        {
+            var progress = new Progress<ModelDownloadProgress>(value =>
+                _model.ModelDownloadPercent = value.Percent);
+            await _engine.DownloadModelAsync(model, progress);
+            _model.Status = $"{model.DisplayName} is ready";
+        }
+        catch (Exception exception) when (
+            exception is HttpRequestException or IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            _model.Status = $"{model.DisplayName} could not be downloaded: {exception.Message}";
+        }
+        finally
+        {
+            _modelDownloadInProgress = false;
+            _model.SetDownloadingModel(null);
+            RefreshInstalledModels();
+            UpdateModelSetup();
+            RefreshDiagnostics();
+        }
+    }
+
+    private void RemoveModel(string id)
+    {
+        var model = WhisperModelCatalog.Resolve(id);
+        if (string.Equals(model.Id, _model.SelectedModel.Id, StringComparison.Ordinal))
+        {
+            _model.Status = "That model is in use. Choose another one first.";
+            return;
+        }
+
+        try
+        {
+            _model.Status = _engine.DeleteModel(model)
+                ? $"Deleted {model.DisplayName}"
+                : $"{model.DisplayName} was not downloaded";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            _model.Status = $"{model.DisplayName} could not be deleted: {exception.Message}";
+        }
+
+        RefreshInstalledModels();
     }
 
     private void OpenInputDevices()
@@ -626,6 +736,10 @@ public sealed partial class BantzModel
     private bool _shortcutDelayEnabled;
     private int _shortcutDelaySeconds;
     private bool _shortcutsEnabled;
+    private string _modelId = WhisperModelCatalog.DefaultModelId;
+    private string _speechLanguage = "en";
+    private Dictionary<string, long> _installedModels = new(StringComparer.Ordinal);
+    private string? _downloadingModelId;
     private string? _captureDeviceId;
     private string? _captureDeviceName;
     private IReadOnlyList<AudioCaptureDevice> _inputDevices = [];
@@ -648,12 +762,15 @@ public sealed partial class BantzModel
         _shortcutDelayEnabled = settings.ShortcutDelayEnabled;
         _shortcutDelaySeconds = Math.Clamp(settings.ShortcutDelaySeconds, 0, 10);
         _shortcutsEnabled = settings.ShortcutsEnabled;
+        _modelId = WhisperModelCatalog.Resolve(settings.ModelId).Id;
+        _speechLanguage = SpeechLanguages.Resolve(settings.Language, SelectedModel);
         _captureDeviceId = settings.CaptureDeviceId;
         _captureDeviceName = settings.CaptureDeviceName;
         _shortcutToggleBinding = settings.ShortcutToggleBinding?.Copy();
         _inputBindings = settings.Bindings.Select(binding => binding.Copy()).ToList();
         RefreshBindingRows();
         RefreshInputDeviceRows();
+        RefreshModelRows();
     }
 
     public event Action? SettingsChanged;
@@ -664,19 +781,22 @@ public sealed partial class BantzModel
     public string StorageDisplay => Page == "storage" ? "flex" : "none";
     public string OnboardingDisplay => Page == "onboarding" ? "flex" : "none";
     public string ConfigDisplay =>
-        Page is "settings" or "input" or "keybinds" or "diagnostics" or "about" ? "flex" : "none";
+        Page is "settings" or "input" or "models" or "keybinds" or "diagnostics" or "about" ? "flex" : "none";
     public string SettingsTabDisplay => Page == "settings" ? "flex" : "none";
     public string InputTabDisplay => Page == "input" ? "flex" : "none";
+    public string ModelsTabDisplay => Page == "models" ? "flex" : "none";
     public string KeybindsTabDisplay => Page == "keybinds" ? "flex" : "none";
     public string DiagnosticsTabDisplay => Page == "diagnostics" ? "flex" : "none";
     public string AboutTabDisplay => Page == "about" ? "flex" : "none";
     public string SettingsTabClass => Page == "settings" ? "selected" : "";
     public string InputTabClass => Page == "input" ? "selected" : "";
+    public string ModelsTabClass => Page == "models" ? "selected" : "";
     public string KeybindsTabClass => Page == "keybinds" ? "selected" : "";
     public string DiagnosticsTabClass => Page == "diagnostics" ? "selected" : "";
     public string AboutTabClass => Page == "about" ? "selected" : "";
     public string SettingsTabSelected => Page == "settings" ? "true" : "false";
     public string InputTabSelected => Page == "input" ? "true" : "false";
+    public string ModelsTabSelected => Page == "models" ? "true" : "false";
     public string KeybindsTabSelected => Page == "keybinds" ? "true" : "false";
     public string DiagnosticsTabSelected => Page == "diagnostics" ? "true" : "false";
     public string AboutTabSelected => Page == "about" ? "true" : "false";
@@ -705,6 +825,42 @@ public sealed partial class BantzModel
     public int BindingsListHeight => PrimaryCaptureDisplay == "block" ? 205 : 250;
     public List<BindingRow> BindingRows { get; set; } = [];
     public List<InputDeviceRow> InputDeviceRows { get; set; } = [];
+    public List<SpeechModelRow> SpeechModelRows { get; set; } = [];
+
+    /// <summary>The model transcription will use.</summary>
+    public WhisperModel SelectedModel => WhisperModelCatalog.Resolve(_modelId);
+
+    /// <summary>The language code transcription will ask for.</summary>
+    public string SpeechLanguage
+    {
+        get => SpeechLanguages.Resolve(_speechLanguage, SelectedModel);
+        set => SelectLanguage(value);
+    }
+
+    public string SelectedModelName => SelectedModel.DisplayName;
+    public string LanguageRowsDisplay => SelectedModel.IsMultilingual ? "block" : "none";
+    public string LanguageLockedDisplay => SelectedModel.IsMultilingual ? "none" : "flex";
+    public string ModelStatus
+    {
+        get
+        {
+            if (_downloadingModelId is { } downloading)
+            {
+                return $"Downloading {WhisperModelCatalog.Resolve(downloading).DisplayName}…";
+            }
+
+            if (!_installedModels.ContainsKey(SelectedModel.Id))
+            {
+                return $"{SelectedModel.DisplayName} downloads on the first transcription.";
+            }
+
+            return SelectedModel.IsMultilingual
+                ? $"{SelectedModel.DisplayName} transcribes {LanguageName}."
+                : $"{SelectedModel.DisplayName} transcribes English only.";
+        }
+    }
+
+    public string LanguageName => SpeechLanguages.Find(_speechLanguage)?.Name ?? "English";
     public string InputDeviceListDisplay => InputDeviceRows.Count == 0 ? "none" : "block";
     public string EmptyInputDevicesDisplay => InputDeviceRows.Count == 0 ? "flex" : "none";
     public string SelectedInputDeviceName => _captureDeviceName ?? _captureDeviceId ?? "System default";
@@ -920,6 +1076,49 @@ public sealed partial class BantzModel
 
     private string SelectedInputDeviceId => ResolveCaptureDeviceId() ?? AudioCaptureDevices.DefaultId;
 
+    /// <summary>Records which models are on disk, with their sizes.</summary>
+    public void SetInstalledModels(IReadOnlyDictionary<string, long> installed)
+    {
+        _installedModels = new Dictionary<string, long>(installed, StringComparer.Ordinal);
+        RefreshModelRows();
+    }
+
+    /// <summary>Shows a model as downloading, or clears the indicator when passed null.</summary>
+    public void SetDownloadingModel(string? modelId)
+    {
+        _downloadingModelId = modelId;
+        RefreshModelRows();
+    }
+
+    /// <summary>Chooses the model to transcribe with. An unknown id falls back to the default.</summary>
+    public void SelectModel(string id)
+    {
+        var model = WhisperModelCatalog.Resolve(id);
+        var language = SpeechLanguages.Resolve(_speechLanguage, model);
+        var changed = !string.Equals(model.Id, _modelId, StringComparison.Ordinal) ||
+            !string.Equals(language, _speechLanguage, StringComparison.Ordinal);
+        _modelId = model.Id;
+        _speechLanguage = language;
+        RefreshModelRows();
+        if (changed)
+        {
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    /// <summary>Chooses the language to transcribe. English-only models keep English.</summary>
+    public void SelectLanguage(string code)
+    {
+        var language = SpeechLanguages.Resolve(code, SelectedModel);
+        var changed = !string.Equals(language, _speechLanguage, StringComparison.Ordinal);
+        _speechLanguage = language;
+        RefreshModelRows();
+        if (changed)
+        {
+            SettingsChanged?.Invoke();
+        }
+    }
+
     public IReadOnlyList<InputBinding> GetBindingsSnapshot() =>
         _inputBindings.Select(binding => binding.Copy()).ToArray();
 
@@ -937,6 +1136,8 @@ public sealed partial class BantzModel
     public AppSettings ToSettings() => new()
     {
         Runtime = SelectedRuntime,
+        ModelId = SelectedModel.Id,
+        Language = SpeechLanguage,
         AutoWrite = AutoWrite,
         AutoEnter = AutoEnter,
         ClipboardPaste = ClipboardPaste,
@@ -951,6 +1152,33 @@ public sealed partial class BantzModel
         ShortcutToggleBinding = _shortcutToggleBinding?.Copy(),
         Bindings = _inputBindings.Select(binding => binding.Copy()).ToList(),
     };
+
+    private void RefreshModelRows()
+    {
+        SpeechModelRows = WhisperModelCatalog.All
+            .Select(model =>
+            {
+                var installed = _installedModels.TryGetValue(model.Id, out var size);
+                var selected = string.Equals(model.Id, SelectedModel.Id, StringComparison.Ordinal);
+                var downloading = string.Equals(model.Id, _downloadingModelId, StringComparison.Ordinal);
+                return new SpeechModelRow
+                {
+                    Id = model.Id,
+                    Name = model.DisplayName,
+                    Badge = model.IsMultilingual ? "MULTI" : "ENGLISH",
+                    Summary = downloading
+                        ? "Downloading…"
+                        : installed
+                            ? $"Installed, {size / 1_048_576d:N0} MiB · {model.Summary}"
+                            : $"{model.DownloadBytes / 1_048_576d:N0} MiB · {model.Summary}",
+                    RowClass = selected ? "selected" : "",
+                    ActionLabel = selected ? "In use" : "Use",
+                    RemoveDisplay = installed && !selected && !downloading ? "block" : "none",
+                };
+            })
+            .ToList();
+
+    }
 
     private void RefreshInputDeviceRows()
     {
@@ -1007,6 +1235,19 @@ public sealed partial class BindingRow
     public string Device { get; set; } = "";
     public string Name { get; set; } = "";
 }
+
+[CupriBindable]
+public sealed partial class SpeechModelRow
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Badge { get; set; } = "";
+    public string Summary { get; set; } = "";
+    public string RowClass { get; set; } = "";
+    public string ActionLabel { get; set; } = "";
+    public string RemoveDisplay { get; set; } = "none";
+}
+
 
 [CupriBindable]
 public sealed partial class InputDeviceRow

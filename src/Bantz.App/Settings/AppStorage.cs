@@ -31,7 +31,9 @@ public sealed class AppStorage
     public bool IsSelected => Mode != StorageMode.Unselected;
     public string Root => Mode == StorageMode.Portable ? _portableRoot : _userRoot;
     public string SettingsPath => Path.Combine(Root, "settings.json");
-    public string ModelPath => Path.Combine(Root, "models", "ggml-base.en.bin");
+    /// <summary>The folder downloaded speech models are kept in.</summary>
+    public string ModelsRoot => Path.Combine(Root, "models");
+    public string ModelPath => Path.Combine(ModelsRoot, "ggml-base.en.bin");
     public string RuntimeRoot => Path.Combine(Root, "runtimes");
     public string DisplayPath => Root;
 

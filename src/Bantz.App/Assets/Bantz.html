@@ -111,6 +111,7 @@
     <nav class="config-tabs" role="tablist" aria-label="Configuration sections">
       <div class="config-tab config-tab-settings {{SettingsTabClass}}" role="tab" aria-selected="{{SettingsTabSelected}}">Settings</div>
       <div class="config-tab config-tab-input {{InputTabClass}}" role="tab" aria-selected="{{InputTabSelected}}">Input</div>
+      <div class="config-tab config-tab-models {{ModelsTabClass}}" role="tab" aria-selected="{{ModelsTabSelected}}">Models</div>
       <div class="config-tab config-tab-keybinds {{KeybindsTabClass}}" role="tab" aria-selected="{{KeybindsTabSelected}}">Keybinds</div>
       <div class="config-tab config-tab-diagnostics {{DiagnosticsTabClass}}" role="tab" aria-selected="{{DiagnosticsTabSelected}}">Diagnostics</div>
       <div class="config-tab config-tab-about {{AboutTabClass}}" role="tab" aria-selected="{{AboutTabSelected}}">About</div>
@@ -182,6 +183,53 @@
         </div>
       </div>
       <div class="capture-message {{InputDeviceStatusClass}}" aria-live="polite">{{InputDeviceStatus}}</div>
+    </section>
+
+    <section class="bindings-panel models-panel config-body" style="display:{{ModelsTabDisplay}}">
+      <div class="section-heading">
+        <div><strong>Speech model</strong><span>Larger models transcribe better and run slower.</span></div>
+      </div>
+      <div class="model-list binding-scroll" role="list">
+        <div class="binding-row model-row {{RowClass}}" role="listitem" data-repeat="SpeechModelRows">
+          <span class="device-badge model-badge">{{Badge}}</span>
+          <strong>{{Name}}</strong>
+          <span class="model-summary">{{Summary}}</span>
+          <cupri-button variant="ghost" data-select-model="{{Id}}">{{ActionLabel}}</cupri-button>
+          <cupri-button variant="ghost" style="display:{{RemoveDisplay}}" data-remove-model="{{Id}}">Delete</cupri-button>
+        </div>
+      </div>
+      <div class="section-heading language-heading">
+        <div><strong>Language</strong><span>Multilingual models transcribe the language you choose.</span></div>
+      </div>
+      <div class="language-locked" style="display:{{LanguageLockedDisplay}}">
+        <cupri-icon name="info" size="13"></cupri-icon>
+        <span>{{SelectedModelName}} is English-only. Choose a multilingual model to change language.</span>
+      </div>
+      <div class="language-picker" style="display:{{LanguageRowsDisplay}}">
+        <cupri-select value="{{SpeechLanguage}}" aria-label="Speech language">
+          <cupri-option value="auto">Detect automatically</cupri-option>
+          <cupri-option value="en">English</cupri-option>
+          <cupri-option value="ar">Arabic</cupri-option>
+          <cupri-option value="zh">Chinese</cupri-option>
+          <cupri-option value="cs">Czech</cupri-option>
+          <cupri-option value="nl">Dutch</cupri-option>
+          <cupri-option value="fr">French</cupri-option>
+          <cupri-option value="de">German</cupri-option>
+          <cupri-option value="hi">Hindi</cupri-option>
+          <cupri-option value="it">Italian</cupri-option>
+          <cupri-option value="ja">Japanese</cupri-option>
+          <cupri-option value="ko">Korean</cupri-option>
+          <cupri-option value="pl">Polish</cupri-option>
+          <cupri-option value="pt">Portuguese</cupri-option>
+          <cupri-option value="ru">Russian</cupri-option>
+          <cupri-option value="es">Spanish</cupri-option>
+          <cupri-option value="sv">Swedish</cupri-option>
+          <cupri-option value="tr">Turkish</cupri-option>
+          <cupri-option value="uk">Ukrainian</cupri-option>
+          <cupri-option value="vi">Vietnamese</cupri-option>
+        </cupri-select>
+      </div>
+      <div class="capture-message" aria-live="polite">{{ModelStatus}}</div>
     </section>
 
     <section class="bindings-panel keybinds-panel config-body" style="display:{{KeybindsTabDisplay}}">

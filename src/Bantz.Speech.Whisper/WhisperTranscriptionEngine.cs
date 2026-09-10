@@ -14,7 +14,8 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
     public const string BaseEnglishModelSha256 = "A03779C86DF3323075F5E796CB2CE5029F00EC8869EEE3FDFB897AFE36C6D002";
     private readonly SemaphoreSlim _modelLock = new(1, 1);
     private readonly Func<string> _modelPathProvider;
-    private readonly string _language = "en";
+    private readonly Func<WhisperModel> _modelProvider = static () => WhisperModelCatalog.Default;
+    private readonly Func<string> _languageProvider = static () => "en";
     private string _lastRun = "Not run yet";
 
     public WhisperTranscriptionEngine(string modelPath)
@@ -28,12 +29,32 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
     }
 
     public WhisperTranscriptionEngine(WhisperOptions options)
-        : this((options ?? throw new ArgumentNullException(nameof(options))).ModelPathProvider)
+        : this(ResolveModelPathProvider(options ?? throw new ArgumentNullException(nameof(options))))
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(options.Language);
-        _language = options.Language;
+        var language = options.Language;
+        _languageProvider = options.LanguageProvider ?? (() => language);
+        _modelProvider = options.ModelProvider ?? (static () => WhisperModelCatalog.Default);
         ConfigureRuntime(options.Runtime, new WhisperRuntimeManager(options.RuntimeRootProvider));
     }
+
+    private static Func<string> ResolveModelPathProvider(WhisperOptions options)
+    {
+        if (options.ModelProvider is null || options.ModelsRootProvider is null)
+        {
+            return options.ModelPathProvider;
+        }
+
+        var models = options.ModelsRootProvider;
+        var model = options.ModelProvider;
+        return () => Path.Combine(models(), model().FileName);
+    }
+
+    /// <summary>The model each transcription will use.</summary>
+    public WhisperModel Model => _modelProvider();
+
+    /// <summary>The language each transcription will ask for, honouring English-only models.</summary>
+    public string Language => SpeechLanguages.Resolve(_languageProvider(), Model);
 
     private string ModelPath => _modelPathProvider();
     public bool IsModelAvailable => File.Exists(ModelPath);
@@ -86,9 +107,10 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
 
             using var waveAudio = audio.CreateWaveStream();
 
+            var language = Language;
             using var factory = WhisperFactory.FromPath(ModelPath);
             using var processor = factory.CreateBuilder()
-                .WithLanguage(_language)
+                .WithLanguage(language)
                 .Build();
             var transcript = new StringBuilder();
             await foreach (var segment in processor.ProcessAsync(waveAudio, cancellationToken).ConfigureAwait(false))
@@ -97,7 +119,7 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
             }
 
             _lastRun = $"Succeeded in {stopwatch.ElapsedMilliseconds:N0} ms · {transcript.Length:N0} characters";
-            return new TranscriptionResult(transcript.ToString(), _language);
+            return new TranscriptionResult(transcript.ToString(), language);
         }
         catch
         {
@@ -118,7 +140,7 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
             "whisper.cpp via Whisper.net",
             version,
             runtime,
-            _language,
+            $"{LanguageDescription} · {Model.DisplayName}",
             file.Name,
             available ? $"{file.Length / 1_048_576d:N1} MiB" : "Not downloaded",
             file.FullName,
@@ -140,25 +162,53 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
             diagnostics.LastRun);
     }
 
+    private string LanguageDescription
+    {
+        get
+        {
+            var requested = _languageProvider();
+            var resolved = Language;
+            var name = SpeechLanguages.Find(resolved)?.Name ?? resolved;
+            return Model.IsMultilingual &&
+                string.Equals(requested, WhisperModelCatalog.AutomaticLanguage, StringComparison.OrdinalIgnoreCase)
+                ? "Detected automatically"
+                : $"{name} ({resolved})";
+        }
+    }
+
     private async Task EnsureModelAsync(CancellationToken cancellationToken)
     {
         await DownloadModelAsync(progress: null, cancellationToken).ConfigureAwait(false);
     }
 
+    public Task DownloadModelAsync(
+        IProgress<ModelDownloadProgress>? progress,
+        CancellationToken cancellationToken = default) =>
+        DownloadModelAsync(Model, progress, cancellationToken);
+
+    /// <summary>
+    /// Downloads one model into the models folder. A model Bantz has pinned is checked against its
+    /// published size and hash; for the rest, the download is checked for the ggml header and for
+    /// matching the length the server declared, which is what can be verified without shipping a
+    /// hash for every model.
+    /// </summary>
     public async Task DownloadModelAsync(
+        WhisperModel model,
         IProgress<ModelDownloadProgress>? progress,
         CancellationToken cancellationToken = default)
     {
-        if (File.Exists(ModelPath))
+        ArgumentNullException.ThrowIfNull(model);
+        var modelPath = PathFor(model);
+        if (File.Exists(modelPath))
         {
-            progress?.Report(new ModelDownloadProgress(BaseEnglishModelBytes, BaseEnglishModelBytes));
+            var installed = new FileInfo(modelPath).Length;
+            progress?.Report(new ModelDownloadProgress(installed, installed));
             return;
         }
 
         await _modelLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var modelPath = ModelPath;
             var directory = Path.GetDirectoryName(modelPath);
             if (!string.IsNullOrEmpty(directory))
             {
@@ -174,8 +224,9 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
             }
 
             var temporaryPath = modelPath + ".download";
+            var expectedBytes = model.DownloadBytes;
             await using (var source = await WhisperGgmlDownloader.Default
-                .GetGgmlModelAsync(GgmlType.BaseEn, cancellationToken: cancellationToken)
+                .GetGgmlModelAsync(model.GgmlType, cancellationToken: cancellationToken)
                 .ConfigureAwait(false))
             await using (var destination = new FileStream(
                 temporaryPath,
@@ -192,11 +243,28 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
                 {
                     await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                     downloaded += read;
-                    progress?.Report(new ModelDownloadProgress(downloaded, BaseEnglishModelBytes));
+                    progress?.Report(new ModelDownloadProgress(downloaded, Math.Max(expectedBytes, downloaded)));
                 }
             }
 
-            if (new FileInfo(temporaryPath).Length != BaseEnglishModelBytes)
+            await VerifyDownloadAsync(model, temporaryPath, cancellationToken).ConfigureAwait(false);
+            File.Move(temporaryPath, modelPath, overwrite: true);
+        }
+        finally
+        {
+            _modelLock.Release();
+        }
+    }
+
+    private static async Task VerifyDownloadAsync(
+        WhisperModel model,
+        string temporaryPath,
+        CancellationToken cancellationToken)
+    {
+        var length = new FileInfo(temporaryPath).Length;
+        if (model.HasPinnedIntegrity)
+        {
+            if (length != model.ExactBytes)
             {
                 File.Delete(temporaryPath);
                 throw new InvalidDataException("The downloaded speech model has an unexpected size.");
@@ -209,18 +277,60 @@ public sealed class WhisperTranscriptionEngine : ITranscriptionEngine, IDisposab
                     await SHA256.HashDataAsync(modelStream, cancellationToken).ConfigureAwait(false));
             }
 
-            if (!string.Equals(actualHash, BaseEnglishModelSha256, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(actualHash, model.Sha256, StringComparison.OrdinalIgnoreCase))
             {
                 File.Delete(temporaryPath);
                 throw new InvalidDataException("The downloaded speech model failed its integrity check.");
             }
 
-            File.Move(temporaryPath, modelPath, overwrite: true);
+            return;
         }
-        finally
+
+        // No published hash to compare against, so check the file is the ggml container Whisper
+        // expects and is not a truncated or error-page download.
+        if (length < MinimumModelBytes || !await HasGgmlHeaderAsync(temporaryPath, cancellationToken).ConfigureAwait(false))
         {
-            _modelLock.Release();
+            File.Delete(temporaryPath);
+            throw new InvalidDataException("The downloaded speech model is not a usable Whisper model file.");
         }
+    }
+
+    private static async Task<bool> HasGgmlHeaderAsync(string path, CancellationToken cancellationToken)
+    {
+        var header = new byte[4];
+        await using var stream = File.OpenRead(path);
+        return await stream.ReadAsync(header, cancellationToken).ConfigureAwait(false) == header.Length &&
+            GgmlMagic.AsSpan().SequenceEqual(header);
+    }
+
+    /// <summary>Smaller than any published Whisper model, so anything below this is a bad download.</summary>
+    private const long MinimumModelBytes = 10 * 1024 * 1024;
+
+    /// <summary>The 'ggml' magic every Whisper model file starts with.</summary>
+    private static readonly byte[] GgmlMagic = [0x6C, 0x6D, 0x67, 0x67];
+
+    /// <summary>The path a model occupies, downloaded or not.</summary>
+    public string PathFor(WhisperModel model)
+    {
+        ArgumentNullException.ThrowIfNull(model);
+        var directory = Path.GetDirectoryName(ModelPath);
+        return string.IsNullOrEmpty(directory) ? model.FileName : Path.Combine(directory, model.FileName);
+    }
+
+    /// <summary>Whether a model is already downloaded.</summary>
+    public bool IsInstalled(WhisperModel model) => File.Exists(PathFor(model));
+
+    /// <summary>Deletes a downloaded model, reporting whether there was one to delete.</summary>
+    public bool DeleteModel(WhisperModel model)
+    {
+        var path = PathFor(model);
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        File.Delete(path);
+        return true;
     }
 
     public void Dispose() => _modelLock.Dispose();

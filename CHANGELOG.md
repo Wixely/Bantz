@@ -3,6 +3,31 @@
 All notable changes to Bantz are recorded here. Versions follow `MAJOR.MINOR.PATCH`; while Bantz
 is pre-1.0 a minor bump may change behaviour you rely on.
 
+## Unreleased
+
+### Added
+
+- **Models tab** for choosing the speech model and language. Tiny, Base, Small, Medium and Large v3
+  Turbo are offered, each multilingual and most with a faster English-only build. Choosing a model
+  that is not downloaded fetches it; one that is not in use can be deleted.
+- Transcription in languages other than English, using a multilingual model. Twenty languages are
+  listed, along with letting Whisper detect the language itself. English-only models keep
+  transcribing English whatever the setting says, because asking one for another language returns
+  English text under the wrong label.
+- `--download-model <id>`, which downloads one model and exits, for scripted or offline setup.
+
+### Changed
+
+- The model and language are read for each transcription, so changing either applies to the next
+  one without a restart.
+- Diagnostics reports the language and model in use rather than a fixed "English (en)".
+
+### Known limitations
+
+- Only the default Base (English) model is checked against a published size and hash. The others are
+  checked for the ggml header and for matching the length the server declared, which is what can be
+  verified without shipping a hash for every model.
+
 ## 0.3.0
 
 ### Added

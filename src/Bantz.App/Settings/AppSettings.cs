@@ -7,6 +7,15 @@ namespace Bantz.Settings;
 public sealed class AppSettings
 {
     public TranscriptionRuntime? Runtime { get; set; }
+
+    /// <summary>The catalogue id of the speech model to transcribe with.</summary>
+    public string ModelId { get; set; } = WhisperModelCatalog.DefaultModelId;
+
+    /// <summary>
+    /// The language to transcribe, or "auto" to let Whisper decide. English-only models ignore it.
+    /// </summary>
+    public string Language { get; set; } = "en";
+
     public bool AutoWrite { get; set; } = true;
     public bool AutoEnter { get; set; }
 

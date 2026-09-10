@@ -1,5 +1,6 @@
 using Bantz.Capture;
 using Bantz.Settings;
+using Bantz.Speech.Whisper;
 using Bantz.Input;
 using Bantz.Ui;
 using Xunit;
@@ -9,17 +10,19 @@ namespace Bantz.Core.Tests;
 public sealed class BantzModelTests
 {
     [Theory]
-    [InlineData("settings", "flex", "selected", "", "", "", "")]
-    [InlineData("input", "flex", "", "selected", "", "", "")]
-    [InlineData("keybinds", "flex", "", "", "selected", "", "")]
-    [InlineData("diagnostics", "flex", "", "", "", "selected", "")]
-    [InlineData("about", "flex", "", "", "", "", "selected")]
-    [InlineData("main", "none", "", "", "", "", "")]
+    [InlineData("settings", "flex", "selected", "", "", "", "", "")]
+    [InlineData("input", "flex", "", "selected", "", "", "", "")]
+    [InlineData("models", "flex", "", "", "selected", "", "", "")]
+    [InlineData("keybinds", "flex", "", "", "", "selected", "", "")]
+    [InlineData("diagnostics", "flex", "", "", "", "", "selected", "")]
+    [InlineData("about", "flex", "", "", "", "", "", "selected")]
+    [InlineData("main", "none", "", "", "", "", "", "")]
     public void ConfigurationTabsExposeOneSelectedPage(
         string page,
         string configDisplay,
         string settingsClass,
         string inputClass,
+        string modelsClass,
         string keybindsClass,
         string diagnosticsClass,
         string aboutClass)
@@ -29,9 +32,108 @@ public sealed class BantzModelTests
         Assert.Equal(configDisplay, model.ConfigDisplay);
         Assert.Equal(settingsClass, model.SettingsTabClass);
         Assert.Equal(inputClass, model.InputTabClass);
+        Assert.Equal(modelsClass, model.ModelsTabClass);
         Assert.Equal(keybindsClass, model.KeybindsTabClass);
         Assert.Equal(diagnosticsClass, model.DiagnosticsTabClass);
         Assert.Equal(aboutClass, model.AboutTabClass);
+    }
+
+    [Fact]
+    public void ANewInstallTranscribesEnglishWithTheBaseModel()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+
+        Assert.Equal("base.en", model.SelectedModel.Id);
+        Assert.Equal("en", model.SpeechLanguage);
+        Assert.Equal("flex", model.LanguageLockedDisplay);
+        Assert.Equal("none", model.LanguageRowsDisplay);
+    }
+
+    [Fact]
+    public void ChoosingAMultilingualModelOffersTheLanguageChoice()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+        var saves = 0;
+        model.SettingsChanged += () => saves++;
+
+        model.SelectModel("small");
+        model.SpeechLanguage = "fr";
+
+        Assert.Equal("small", model.ToSettings().ModelId);
+        Assert.Equal("fr", model.ToSettings().Language);
+        Assert.Equal("French", model.LanguageName);
+        Assert.Equal("block", model.LanguageRowsDisplay);
+        Assert.Equal("none", model.LanguageLockedDisplay);
+        Assert.Equal(2, saves);
+    }
+
+    [Fact]
+    public void AnEnglishOnlyModelKeepsEnglishWhateverTheLanguageSays()
+    {
+        var settings = AppSettings.Defaults();
+        settings.ModelId = "small";
+        settings.Language = "de";
+        var model = new BantzModel(settings);
+        Assert.Equal("de", model.SpeechLanguage);
+
+        model.SelectModel("base.en");
+
+        Assert.Equal("en", model.SpeechLanguage);
+        Assert.Equal("en", model.ToSettings().Language);
+    }
+
+    [Fact]
+    public void AnUnknownModelFallsBackToTheDefault()
+    {
+        var settings = AppSettings.Defaults();
+        settings.ModelId = "gargantuan-v9";
+        var model = new BantzModel(settings);
+
+        Assert.Equal(WhisperModelCatalog.DefaultModelId, model.SelectedModel.Id);
+    }
+
+    [Fact]
+    public void ModelRowsShowWhatIsInstalledAndWhatWouldBeDownloaded()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+        model.SetInstalledModels(new Dictionary<string, long> { ["base.en"] = 147_964_211 });
+
+        var installed = model.SpeechModelRows.Single(row => row.Id == "base.en");
+        var absent = model.SpeechModelRows.Single(row => row.Id == "small");
+
+        Assert.Equal("selected", installed.RowClass);
+        Assert.Equal("In use", installed.ActionLabel);
+        Assert.Contains("Installed", installed.Summary, StringComparison.Ordinal);
+        Assert.Equal("none", installed.RemoveDisplay);
+        Assert.Contains("466 MiB", absent.Summary, StringComparison.Ordinal);
+        Assert.Equal("none", absent.RemoveDisplay);
+    }
+
+    [Fact]
+    public void AnInstalledModelThatIsNotInUseCanBeDeleted()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+        model.SetInstalledModels(new Dictionary<string, long>
+        {
+            ["base.en"] = 147_964_211,
+            ["small"] = 488_000_000,
+        });
+
+        Assert.Equal("block", model.SpeechModelRows.Single(row => row.Id == "small").RemoveDisplay);
+    }
+
+    [Fact]
+    public void ADownloadingModelSaysSoAndCannotBeDeleted()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+        model.SetInstalledModels(new Dictionary<string, long> { ["small"] = 488_000_000 });
+
+        model.SetDownloadingModel("small");
+
+        var row = model.SpeechModelRows.Single(candidate => candidate.Id == "small");
+        Assert.Equal("Downloading…", row.Summary);
+        Assert.Equal("none", row.RemoveDisplay);
+        Assert.Contains("Downloading Small", model.ModelStatus, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -25,6 +25,7 @@ Bantz is a small, private hold-to-talk dictation app for Windows, with an experi
 - Enable **Compatibility mode (clipboard paste)** when a destination drops typed characters, as Remote Desktop sessions and some virtual-machine consoles do. Bantz then puts the transcript on the clipboard and sends Ctrl+V instead of synthesizing each character. On Windows every format the clipboard was holding is copied first and handed back a moment after the paste, so text, images, and copied files survive; colour palettes, owner-drawn formats, and anything over 32 MiB are dropped rather than copied. Copying something else during that moment is overwritten when the previous contents return.
 - Enable **Always on top** to keep Bantz above other windows.
 - Open **Input** to choose which microphone Bantz records from, or leave it on the system default. The list refreshes when the tab opens and from its **Refresh** button. Bantz remembers the device by name, so it finds the same microphone again after device numbers shift, and falls back to the system default while that device is disconnected.
+- Open **Models** to choose the speech model and the language. Bantz offers Tiny, Base, Small, Medium and Large v3 Turbo, each in a multilingual build and most in a faster English-only build. Choosing a model that is not downloaded starts the download; a model that is not in use can be deleted to reclaim the disk. Multilingual models transcribe any of the listed languages or detect the language themselves; English-only models always transcribe English, whatever the language setting says.
 - On Windows, closing the window keeps Bantz available in the notification area. Left-click its tray icon to restore it, or right-click and choose **Close Bantz** to exit.
 - On first run, choose where all Bantz data lives: a per-user app-data folder, or a portable `BantzData` folder beside the executable.
 - Then choose **GPU (Vulkan)** or **CPU only**. Bantz downloads only the selected pinned Whisper.net runtime, verifies its SHA-256 hash, and extracts only the native files for the current platform. The choice remains editable in Settings; changing to a runtime that is not installed returns to setup on the next launch.
@@ -72,6 +73,12 @@ dotnet run --project src/Bantz.Windows -- --model C:\models\ggml-base.en.bin
 ```
 
 The `BANTZ_STT_MODEL` environment variable provides the same override. Command-line configuration wins.
+Download a model without opening the Models tab, for a scripted or offline setup:
+
+```powershell
+dotnet run --project src/Bantz.Windows -- --download-model small
+```
+
 Only one interactive Bantz instance runs by default. Pass `--allow-multiple-instances` to start an
 additional instance, for example when testing two configurations side by side.
 
@@ -132,6 +139,7 @@ dotnet run --project src/Bantz.Windows -- --page storage --snapshot artifacts\ba
 dotnet run --project src/Bantz.Windows -- --page onboarding --snapshot artifacts\bantz-onboarding.png
 dotnet run --project src/Bantz.Windows -- --page settings --snapshot artifacts\bantz-settings.png
 dotnet run --project src/Bantz.Windows -- --page input --input-preview --snapshot artifacts\bantz-input.png
+dotnet run --project src/Bantz.Windows -- --page models --snapshot artifacts\bantz-models.png
 dotnet run --project src/Bantz.Windows -- --page keybinds --snapshot artifacts\bantz-keybinds.png
 ```
 

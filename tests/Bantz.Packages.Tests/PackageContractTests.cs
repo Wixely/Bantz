@@ -141,6 +141,49 @@ plughw:CARD=PCH,DEV=0
     }
 
     [Fact]
+    public void EveryCatalogueModelIsDistinctAndDescribed()
+    {
+        var models = WhisperModelCatalog.All;
+
+        Assert.NotEmpty(models);
+        Assert.Equal(models.Count, models.Select(model => model.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(models.Count, models.Select(model => model.FileName).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.All(models, model =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(model.DisplayName));
+            Assert.False(string.IsNullOrWhiteSpace(model.Summary));
+            Assert.True(model.DownloadBytes > 0);
+            Assert.StartsWith("ggml-", model.FileName, StringComparison.Ordinal);
+        });
+        Assert.Equal(WhisperModelCatalog.DefaultModelId, WhisperModelCatalog.Default.Id);
+    }
+
+    [Fact]
+    public void OnlyTheDefaultModelShipsWithAPinnedHash()
+    {
+        // The rest are checked for the ggml header and the length the server declares, because
+        // Bantz does not publish a hash for every model.
+        var pinned = WhisperModelCatalog.All.Where(model => model.HasPinnedIntegrity).ToArray();
+
+        var only = Assert.Single(pinned);
+        Assert.Equal(WhisperModelCatalog.DefaultModelId, only.Id);
+        Assert.Equal(147_964_211, only.ExactBytes);
+    }
+
+    [Fact]
+    public void EnglishOnlyModelsRefuseOtherLanguages()
+    {
+        var english = WhisperModelCatalog.Resolve("base.en");
+        var multilingual = WhisperModelCatalog.Resolve("base");
+
+        Assert.Equal("en", SpeechLanguages.Resolve("fr", english));
+        Assert.Equal("fr", SpeechLanguages.Resolve("fr", multilingual));
+        Assert.Equal("auto", SpeechLanguages.Resolve("auto", multilingual));
+        Assert.Equal("en", SpeechLanguages.Resolve("klingon", multilingual));
+        Assert.Equal("en", SpeechLanguages.Resolve(null, multilingual));
+    }
+
+    [Fact]
     public void GlobalInputCapabilitiesAreHonestForCurrentPlatform()
     {
         Assert.Equal(OperatingSystem.IsWindows(), GlobalInputCapabilities.Current.SupportsGlobalBindings);

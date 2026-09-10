@@ -142,6 +142,20 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .bindings-panel { padding:14px 15px; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
 .keybinds-panel { height:418px; }
 .input-panel { height:418px; }
+.models-panel { height:418px; }
+.model-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; }
+.model-row strong { flex:none; color:#e5ebf4; font-size:12px; }
+.model-summary { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#8f9bad; font-size:10px; }
+.model-badge { min-width:58px; flex:none; font-size:8px; }
+.model-row .cupri-button { flex:none; padding:7px 10px; border-radius:8px; font-size:11px; }
+.model-row.selected { background:#20313b; box-shadow:inset 0 0 0 1px #68e0b1; }
+.model-row.selected .device-badge { background:#1f4a41; }
+.language-heading { height:34px; }
+.language-heading strong { font-size:12px!important; }
+.language-heading span { font-size:10px!important; }
+.language-locked { height:34px; flex:none; padding:8px 10px; border:1px dashed #51472e; border-radius:9px; background:#211e18; color:#b9af96; align-items:center; gap:8px; font-size:10px; }
+.language-picker { height:44px; flex:none; display:flex; align-items:center; }
+.language-picker .cupri-select { width:260px; font-size:12px; }
 .device-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:7px; }
 
 .device-row.selected { background:#20313b; box-shadow:inset 0 0 0 1px #68e0b1; }

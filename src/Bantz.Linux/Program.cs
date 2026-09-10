@@ -44,12 +44,24 @@ if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
 }
 var signalAnalyzer = new AudioSignalAnalyzer();
 using var recorder = new LinuxAudioRecorder(signalAnalyzer, model.CaptureOptions);
-using var engine = new WhisperTranscriptionEngine(new WhisperOptions
-{
-    ModelPathProvider = () => modelOverride ?? storage.ModelPath,
-    RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
-    Runtime = selectedRuntime,
-});
+// A --model path pins one file; otherwise the chosen catalogue model decides the file, so that
+// switching models in the Models tab applies to the next transcription.
+using var engine = new WhisperTranscriptionEngine(modelOverride is null
+    ? new WhisperOptions
+    {
+        ModelsRootProvider = () => storage.ModelsRoot,
+        ModelProvider = () => model.SelectedModel,
+        LanguageProvider = () => model.SpeechLanguage,
+        RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
+        Runtime = selectedRuntime,
+    }
+    : new WhisperOptions
+    {
+        ModelPathProvider = () => modelOverride,
+        LanguageProvider = () => model.SpeechLanguage,
+        RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
+        Runtime = selectedRuntime,
+    });
 if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 {
     engine.ProbeRuntime();
@@ -69,6 +81,7 @@ using var workflow = new DictationWorkflow(
 var initialWindowSize = LinuxDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
 var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, signalAnalyzer, initialWindowSize);
 app.RefreshInputDevices();
+app.RefreshInstalledModels();
 if (!storage.IsSelected)
 {
     model.Page = "storage";
@@ -79,7 +92,7 @@ else if (settings.Runtime is null || !engine.IsModelAvailable || !runtimeManager
 }
 
 var requestedPage = ArgumentValue(args, "--page");
-if (requestedPage is "main" or "settings" or "input" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "input" or "models" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
     model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&

@@ -114,6 +114,51 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void TheChosenModelAndLanguageSurviveRestart()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.ModelId = "medium";
+        settings.Language = "ja";
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.Equal("medium", reloaded.ModelId);
+        Assert.Equal("ja", reloaded.Language);
+    }
+
+    [Fact]
+    public void AnEnglishOnlyModelIsStoredWithEnglish()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.ModelId = "medium.en";
+        settings.Language = "ja";
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.Equal("medium.en", reloaded.ModelId);
+        Assert.Equal("en", reloaded.Language);
+    }
+
+    [Fact]
+    public void AnUnknownModelOrLanguageFallsBack()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.ModelId = "not-a-model";
+        settings.Language = "not-a-language";
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.Equal("base.en", reloaded.ModelId);
+        Assert.Equal("en", reloaded.Language);
+    }
+
+    [Fact]
     public void CompatibilityModeSurvivesRestart()
     {
         var store = new SettingsStore(SettingsPath);

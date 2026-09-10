@@ -51,6 +51,34 @@ if (Enum.TryParse<TranscriptionRuntime>(runtimeDownload, ignoreCase: true, out v
     return;
 }
 
+var modelDownload = ArgumentValue(args, "--download-model");
+if (!string.IsNullOrWhiteSpace(modelDownload))
+{
+    var requested = WhisperModelCatalog.Find(modelDownload);
+    if (requested is null)
+    {
+        Console.Error.WriteLine($"Unknown model '{modelDownload}'. Known models: {string.Join(", ", WhisperModelCatalog.All.Select(entry => entry.Id))}");
+        return;
+    }
+
+    using var downloadEngine = new WhisperTranscriptionEngine(new WhisperOptions
+    {
+        ModelsRootProvider = () => storage.ModelsRoot,
+        ModelProvider = () => requested,
+    });
+    var reported = -1;
+    await downloadEngine.DownloadModelAsync(requested, new Progress<ModelDownloadProgress>(value =>
+    {
+        if (value.Percent != reported && value.Percent % 10 == 0)
+        {
+            reported = value.Percent;
+            Console.WriteLine($"{requested.Id}: {value.Percent}%");
+        }
+    }));
+    Console.WriteLine($"{requested.Id} is installed at {downloadEngine.PathFor(requested)}");
+    return;
+}
+
 var runtimeOverride = ArgumentValue(args, "--runtime");
 var hasRuntimeOverride = Enum.TryParse<TranscriptionRuntime>(runtimeOverride, ignoreCase: true, out var parsedRuntime);
 var selectedRuntime = hasRuntimeOverride
@@ -79,12 +107,24 @@ if (inputPreview)
 
 var signalAnalyzer = new AudioSignalAnalyzer();
 using var recorder = new WindowsAudioRecorder(signalAnalyzer, model.CaptureOptions);
-using var engine = new WhisperTranscriptionEngine(new WhisperOptions
-{
-    ModelPathProvider = () => modelOverride ?? storage.ModelPath,
-    RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
-    Runtime = selectedRuntime,
-});
+// A --model path pins one file; otherwise the chosen catalogue model decides the file, so that
+// switching models in the Models tab applies to the next transcription.
+using var engine = new WhisperTranscriptionEngine(modelOverride is null
+    ? new WhisperOptions
+    {
+        ModelsRootProvider = () => storage.ModelsRoot,
+        ModelProvider = () => model.SelectedModel,
+        LanguageProvider = () => model.SpeechLanguage,
+        RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
+        Runtime = selectedRuntime,
+    }
+    : new WhisperOptions
+    {
+        ModelPathProvider = () => modelOverride,
+        LanguageProvider = () => model.SpeechLanguage,
+        RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
+        Runtime = selectedRuntime,
+    });
 if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 {
     engine.ProbeRuntime();
@@ -106,6 +146,7 @@ var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, s
 if (!inputPreview)
 {
     app.RefreshInputDevices();
+    app.RefreshInstalledModels();
 }
 if (!storage.IsSelected)
 {
@@ -120,7 +161,7 @@ var requestedPage = args
     .SkipWhile(value => !string.Equals(value, "--page", StringComparison.OrdinalIgnoreCase))
     .Skip(1)
     .FirstOrDefault();
-if (requestedPage is "main" or "settings" or "input" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "input" or "models" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
     model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&
