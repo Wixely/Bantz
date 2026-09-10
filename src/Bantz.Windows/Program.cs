@@ -262,6 +262,70 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         Console.WriteLine($"Overscroll('{path}', {delta}): {document.Overscroll(path, delta)}");
     }
 
+    var drag = ArgumentValue(args, "--drag");
+    if (!string.IsNullOrWhiteSpace(drag))
+    {
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        var parts = drag.Split(',').Select(part => float.Parse(part, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        var (x1, y1, x2, y2) = (parts[0], parts[1], parts[2], parts[3]);
+        Console.WriteLine($"drag ({x1:N0},{y1:N0}) -> ({x2:N0},{y2:N0})");
+        document.DispatchPointerMove(x1, y1);
+        // The host tries the pointer press first and falls back to a click; the mouse path grabs
+        // drag surfaces inside that click, so both have to run.
+        var byPointer = document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Down, x1, y1);
+        var pressed = byPointer || document.DispatchClick(x1, y1, 1);
+        // A user drags an idle window, so wait for startup's redraw requests to lapse first.
+        for (var waited = 0;
+            args.Contains("--drag-refresh", StringComparer.OrdinalIgnoreCase) && waited < 3000 && app.RefreshIntervalSeconds > 0;
+            waited += 50)
+        {
+            System.Threading.Thread.Sleep(50);
+        }
+
+        Console.WriteLine($"  tick interval: {app.RefreshIntervalSeconds:N2}s");
+        Console.WriteLine($"  consumed by: {(byPointer ? "DispatchPointer" : pressed ? "DispatchClick" : "nothing")} captured={document.IsPointerCaptured(0)}");
+
+        Console.WriteLine($"  press: {pressed} hit: {DescribeNode(document.HitTest(x1, y1))}");
+        ReportScroll(document, "  after press");
+        for (var step = 1; step <= 8; step++)
+        {
+            var t = step / 8f;
+            var mx = x1 + (x2 - x1) * t;
+            var my = y1 + (y2 - y1) * t;
+            if (!document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Move, mx, my))
+            {
+                document.DispatchPointerMove(mx, my);
+            }
+
+            // Mimics the periodic Refresh the shell runs, which happens only while the app asks
+            // for a tick.
+            if (args.Contains("--drag-refresh", StringComparer.OrdinalIgnoreCase) && app.RefreshIntervalSeconds > 0)
+            {
+                document.Refresh();
+            }
+        }
+
+        ReportScroll(document, "  after move");
+        if (!document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Up, x2, y2))
+        {
+            document.DispatchPointerUp(x2, y2);
+        }
+
+        ReportScroll(document, "  after release");
+    }
+
+    var wheels = WheelPoints(args);
+    if (wheels.Count > 0)
+    {
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        foreach (var (x, y, delta) in wheels)
+        {
+            Console.WriteLine($"wheel ({x:N0},{y:N0}) delta {delta:N0}: {document.DispatchWheel(x, y, delta)}");
+        }
+    }
+
     var scrollProbe = ArgumentValue(args, "--probe-scroll");
     if (!string.IsNullOrWhiteSpace(scrollProbe))
     {
@@ -277,8 +341,29 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
                 continue;
             }
 
-            float Read(string name) => Convert.ToSingle(type.GetProperty(name)?.GetValue(node) ?? 0f, System.Globalization.CultureInfo.InvariantCulture);
-            Console.WriteLine($"scrollable node: Width={Read("Width"):N1} Height={Read("Height"):N1} MaxScrollY={Read("MaxScrollY"):N1} ContentBoxHeight={Read("ContentBoxHeight"):N1} BorderRightW={Read("BorderRightW"):N1}");
+            float Read(string name)
+            {
+                var member = (object?)type.GetProperty(name)?.GetValue(node) ?? type.GetField(name)?.GetValue(node);
+                return member is null ? float.NaN : Convert.ToSingle(member, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            var element = type.GetField("Element")?.GetValue(node);
+            var classes = element?.GetType().GetProperty("ClassList")?.GetValue(element) as System.Collections.IEnumerable;
+            var nodeName = classes is null ? "?" : string.Join(".", classes.Cast<object>().Select(c => c?.ToString()));
+            var thumbH = MathF.Max(28f, Read("ContentBoxHeight") * Read("ContentBoxHeight") / Read("ScrollContentHeight"));
+            // X and Y are relative to the parent, so walk the chain for the painted position.
+            float absX = 0, absY = 0;
+            for (var walk = node; walk is not null; walk = NodeParent(walk))
+            {
+                var walkType = walk.GetType();
+                absX += Convert.ToSingle(walkType.GetField("X")?.GetValue(walk) ?? 0f, System.Globalization.CultureInfo.InvariantCulture);
+                absY += Convert.ToSingle(walkType.GetField("Y")?.GetValue(walk) ?? 0f, System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            var thumbX = absX + Read("Width") - Read("BorderRightW") - 8f;
+            Console.WriteLine($"  list at ({absX:N1},{absY:N1}) size {Read("Width"):N1}x{Read("Height"):N1}");
+            Console.WriteLine($"  thumb x={thumbX:N1} grab x in [{thumbX - 6:N1}..{thumbX + 13:N1}], y in [{absY:N1}..{absY + thumbH:N1}]");
+            Console.WriteLine($"scrollable '{nodeName}': ScrollY={Read("ScrollY"):N1} Max={Read("MaxScrollY"):N1} ContentH={Read("ScrollContentHeight"):N1} BoxH={Read("ContentBoxHeight"):N1} W={Read("Width"):N1}");
             foreach (var name in new[] { "X", "Y", "AbsX", "AbsY", "PaintX", "PaintY", "ContentTopInset" })
             {
                 var value = type.GetProperty(name)?.GetValue(node);
@@ -289,54 +374,6 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
             }
 
             break;
-        }
-    }
-
-    var drag = ArgumentValue(args, "--drag");
-    if (!string.IsNullOrWhiteSpace(drag))
-    {
-        settingsStore.Suspend();
-        using (renderer.RenderFrames(1, RenderFrame)) { }
-        var parts = drag.Split(',').Select(part => float.Parse(part, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-        var (x1, y1, x2, y2) = (parts[0], parts[1], parts[2], parts[3]);
-        Console.WriteLine($"drag ({x1:N0},{y1:N0}) -> ({x2:N0},{y2:N0})");
-        document.DispatchPointerMove(x1, y1);
-        // The host tries the pointer press first and falls back to a click; the mouse path grabs
-        // drag surfaces inside that click, so both have to run.
-        var pressed = document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Down, x1, y1);
-        if (!pressed)
-        {
-            pressed = document.DispatchClick(x1, y1, 1);
-        }
-
-        Console.WriteLine($"  press: {pressed}");
-        for (var step = 1; step <= 8; step++)
-        {
-            var t = step / 8f;
-            var mx = x1 + (x2 - x1) * t;
-            var my = y1 + (y2 - y1) * t;
-            if (!document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Move, mx, my))
-            {
-                document.DispatchPointerMove(mx, my);
-            }
-        }
-
-        if (!document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Up, x2, y2))
-        {
-            document.DispatchPointerUp(x2, y2);
-        }
-
-        Console.WriteLine("  released");
-    }
-
-    var wheels = WheelPoints(args);
-    if (wheels.Count > 0)
-    {
-        settingsStore.Suspend();
-        using (renderer.RenderFrames(1, RenderFrame)) { }
-        foreach (var (x, y, delta) in wheels)
-        {
-            Console.WriteLine($"wheel ({x:N0},{y:N0}) delta {delta:N0}: {document.DispatchWheel(x, y, delta)}");
         }
     }
 
@@ -412,8 +449,7 @@ input.HotkeyReleased += () =>
 };
 DesktopHost.Run(app);
 
-static CupriFace.Dom.RenderNode? NodeParent(CupriFace.Dom.RenderNode node) =>
-    node.GetType().GetProperty("Parent")?.GetValue(node) as CupriFace.Dom.RenderNode;
+static CupriFace.Dom.RenderNode? NodeParent(CupriFace.Dom.RenderNode node) => node.Parent;
 
 static List<(float X, float Y, float Delta)> WheelPoints(string[] values)
 {
@@ -460,6 +496,37 @@ static List<(float X, float Y)> ClickPoints(string[] values)
     return points;
 }
 
+static void ReportScroll(CupriFace.CupriDocument document, string label)
+{
+    var root = typeof(CupriFace.CupriDocument)
+        .GetField("_root", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+        ?.GetValue(document);
+    var found = new List<string>();
+    void Walk(object? node)
+    {
+        if (node is null) return;
+        var type = node.GetType();
+        if (Convert.ToBoolean(type.GetProperty("IsScrollable")?.GetValue(node) ?? false, System.Globalization.CultureInfo.InvariantCulture))
+        {
+            var element = type.GetField("Element")?.GetValue(node);
+            var classes = element?.GetType().GetProperty("ClassList")?.GetValue(element);
+            var name = classes is System.Collections.IEnumerable list
+                ? string.Join(".", list.Cast<object>().Select(item => item?.ToString()))
+                : "?";
+            var scrollY = type.GetField("ScrollY")?.GetValue(node);
+            found.Add($"{name}={Convert.ToSingle(scrollY ?? 0f, System.Globalization.CultureInfo.InvariantCulture):N1}");
+        }
+
+        if (type.GetField("Children")?.GetValue(node) is System.Collections.IEnumerable children)
+        {
+            foreach (var child in children) Walk(child);
+        }
+    }
+
+    Walk(root);
+    Console.WriteLine($"{label}: {(found.Count > 0 ? string.Join(" ", found) : "<no scrollers>")}");
+}
+
 static string DescribeNode(object? node)
 {
     if (node is null)
@@ -471,7 +538,7 @@ static string DescribeNode(object? node)
     var parts = new List<string>();
     foreach (var name in new[] { "Tag", "Id", "ClassName", "Classes", "Text" })
     {
-        var value = type.GetProperty(name)?.GetValue(node);
+        var value = (object?)type.GetProperty(name)?.GetValue(node) ?? type.GetField(name)?.GetValue(node);
         if (value is string text && text.Length > 0)
         {
             parts.Add($"{name}='{(text.Length > 40 ? text[..40] : text)}'");

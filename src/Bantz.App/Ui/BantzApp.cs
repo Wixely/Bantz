@@ -29,6 +29,7 @@ public sealed class BantzApp : CupriApp
     private bool _modelDownloadInProgress;
     private bool _iconShortcutsEnabled;
     private bool _isRecording;
+    private long _redrawUntil;
     private string _latestTranscript = "";
 
     public BantzApp(
@@ -79,7 +80,12 @@ public sealed class BantzApp : CupriApp
     public override byte[] Icon => _model.ShortcutsEnabled ? _enabledIcon : _disabledIcon;
     public IReadOnlyList<byte[]> RecordingIconFrames => _recordingIconFrames;
     public override object Model => _model;
-    public override double RefreshIntervalSeconds => 0.1;
+    // The shell rebuilds the document on every refresh tick, and a rebuild cancels whatever the
+    // pointer was dragging — scroll offsets are carried across, an in-progress drag is not. A
+    // permanent tick therefore made the scrollbars impossible to drag: a grab died within 100ms.
+    // Work that arrives from outside the click path (audio levels, dictation state, downloads,
+    // global hotkeys) asks for the tick instead, and it stops once that work goes quiet.
+    public override double RefreshIntervalSeconds => Environment.TickCount64 <= _redrawUntil ? 0.1 : 0;
     protected override CupriSource MarkupSource => EmbeddedAsset("Assets/Bantz.html");
     protected override CupriSource StyleSource => EmbeddedAsset("Assets/Bantz.css");
 
@@ -218,6 +224,7 @@ public sealed class BantzApp : CupriApp
         {
             var runtimeProgress = new Progress<RuntimeDownloadProgress>(value =>
             {
+                RequestRedraw();
                 _model.ModelDownloadPercent = value.Percent / 4;
                 _model.ModelDownloadStatus = $"Runtime: {value.DownloadedBytes / 1_048_576d:N1} of {value.TotalBytes / 1_048_576d:N1} MiB";
             });
@@ -226,6 +233,7 @@ public sealed class BantzApp : CupriApp
 
             var progress = new Progress<ModelDownloadProgress>(value =>
             {
+                RequestRedraw();
                 _model.ModelDownloadPercent = 25 + (value.Percent * 3 / 4);
                 _model.ModelDownloadStatus = $"Downloaded {value.DownloadedBytes / 1_048_576d:N1} of {value.TotalBytes / 1_048_576d:N1} MiB";
             });
@@ -299,6 +307,7 @@ public sealed class BantzApp : CupriApp
 
     public void RefreshDiagnostics()
     {
+        RequestRedraw();
         var diagnostics = _engine.GetDiagnostics();
         _model.DiagnosticsStatus = diagnostics.Status;
         _model.DiagnosticsSummary = diagnostics.Summary;
@@ -364,6 +373,7 @@ public sealed class BantzApp : CupriApp
 
     public void BindingCaptured(InputBinding binding)
     {
+        RequestRedraw();
         var capturePurpose = _bindingCapturePurpose;
         _bindingCapturePurpose = BindingCapturePurpose.None;
         _model.CancelCaptureDisplay = "none";
@@ -407,6 +417,7 @@ public sealed class BantzApp : CupriApp
 
     public void BindingCaptureCancelled()
     {
+        RequestRedraw();
         _bindingCapturePurpose = BindingCapturePurpose.None;
         _model.CancelCaptureDisplay = "none";
         _model.CaptureState = "Capture cancelled. Nothing changed.";
@@ -442,6 +453,7 @@ public sealed class BantzApp : CupriApp
     /// <summary>Re-reads which models are on disk.</summary>
     public void RefreshInstalledModels()
     {
+        RequestRedraw();
         var installed = new Dictionary<string, long>(StringComparer.Ordinal);
         foreach (var model in WhisperModelCatalog.All)
         {
@@ -490,7 +502,10 @@ public sealed class BantzApp : CupriApp
         try
         {
             var progress = new Progress<ModelDownloadProgress>(value =>
-                _model.ModelDownloadPercent = value.Percent);
+            {
+                RequestRedraw();
+                _model.ModelDownloadPercent = value.Percent;
+            });
             await _engine.DownloadModelAsync(model, progress);
             _model.Status = $"{model.DisplayName} is ready";
         }
@@ -539,7 +554,11 @@ public sealed class BantzApp : CupriApp
     }
 
     /// <summary>Re-reads the microphone list so devices connected since startup appear.</summary>
-    public void RefreshInputDevices() => _model.SetInputDevices(AudioCaptureDevices.List());
+    public void RefreshInputDevices()
+    {
+        RequestRedraw();
+        _model.SetInputDevices(AudioCaptureDevices.List());
+    }
 
     private void SelectInputDevice(string id)
     {
@@ -588,6 +607,7 @@ public sealed class BantzApp : CupriApp
 
     public void ToggleShortcutsEnabled()
     {
+        RequestRedraw();
         _model.ShortcutsEnabled = !_model.ShortcutsEnabled;
         var state = _model.ShortcutsEnabled ? "enabled" : "disabled";
         _model.Status = $"PTT shortcuts {state}";
@@ -693,6 +713,7 @@ public sealed class BantzApp : CupriApp
 
     private void ApplySnapshot(DictationSnapshot snapshot)
     {
+        RequestRedraw();
         var isRecording = snapshot.State == DictationState.Recording;
         _model.Status = snapshot.Status;
         if (snapshot.Transcript.Length > 0)
@@ -733,8 +754,14 @@ public sealed class BantzApp : CupriApp
         }
     }
 
+    // Keeps the refresh tick alive long enough for the shell to run one tick and paint the change.
+    // Anything that follows requests its own window, so a stream of updates (audio levels, download
+    // progress) holds the tick open for as long as it lasts and no longer.
+    private void RequestRedraw() => _redrawUntil = Environment.TickCount64 + 300;
+
     private void ApplyAudioSignal(AudioSignalFrame frame)
     {
+        RequestRedraw();
         _model.RecordingBarOneScale = Scale(frame.FirstBar);
         _model.RecordingBarTwoScale = Scale(frame.SecondBar);
         _model.RecordingBarThreeScale = Scale(frame.ThirdBar);

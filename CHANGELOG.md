@@ -27,6 +27,14 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   one without a restart.
 - Diagnostics reports the language and model in use rather than a fixed "English (en)".
 
+### Fixed
+
+- Scrollbars can be dragged again. Bantz rebuilt its whole window ten times a second, and a rebuild
+  cancels whatever the pointer is dragging, so a grabbed scrollbar thumb stopped moving within a
+  tenth of a second of being grabbed. The window is now rebuilt when something actually changes it
+  from outside a click — audio levels while recording, a download's progress, a global shortcut —
+  which also spares an idle Bantz the work.
+
 ### Known limitations
 
 - Only the default Base (English) model is checked against a published size and hash. The others are
