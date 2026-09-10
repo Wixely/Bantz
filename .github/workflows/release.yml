@@ -149,12 +149,34 @@ jobs:
             Where-Object { $_.Name -like "bantz-v$env:VERSION-*" } |
             Sort-Object Name
           if ($files.Count -ne 8) { throw "Expected eight release files; found $($files.Count)." }
+          # Prefer the notes written for this version; fall back to generated ones when the
+          # changelog has no section for it.
+          $notes = @()
+          $section = @()
+          $collecting = $false
+          foreach ($line in Get-Content CHANGELOG.md -Encoding utf8) {
+            if ($line -match '^## ') {
+              if ($collecting) { break }
+              $collecting = $line.Trim() -eq "## $env:VERSION"
+              continue
+            }
+            if ($collecting) { $section += $line }
+          }
+          if ($section.Count -gt 0) {
+            $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+            Set-Content -LiteralPath $notesPath -Value ($section -join "`n") -Encoding utf8
+            $notes = @('--notes-file', $notesPath)
+          }
+          else {
+            Write-Output "CHANGELOG.md has no section for $env:VERSION; generating notes."
+            $notes = @('--generate-notes')
+          }
           $arguments = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             '--repo', $env:GITHUB_REPOSITORY,
-            '--verify-tag', '--generate-notes',
+            '--verify-tag',
             '--title', "Bantz $env:GITHUB_REF_NAME"
-          )
+          ) + $notes
           $arguments += $files.FullName
           & gh @arguments
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release creation failed.' }
