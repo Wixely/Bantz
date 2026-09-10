@@ -42,9 +42,15 @@ public sealed partial class WindowsTextInjector : ITextInjector
     private const int ClipboardOpenAttempts = 10;
     private const int ClipboardRetryMilliseconds = 20;
 
-    // Pasting is asynchronous from here: the target reads the clipboard on its own message loop,
-    // so the previous contents can only go back once it has had a moment to do that.
-    private const int PasteSettleMilliseconds = 250;
+    // Pasting is asynchronous from here. SendInput only queues the keystrokes: it returns before
+    // the target has seen them, and the target then reads the clipboard on its own message loop.
+    // A quarter of a second was enough for a local text box and not nearly enough for the case
+    // this mode exists for — a Remote Desktop session fetches clipboard data across the wire when
+    // the remote application asks for it, which is slower than that, so the transcript had been
+    // taken back before it could be read and nothing arrived. It now stays put for as long as a
+    // remote fetch plausibly takes.
+    private const int PasteHoldMilliseconds = 2_500;
+    private const int PasteHoldPollMilliseconds = 50;
 
     private readonly Func<bool> _useClipboardPaste;
 
@@ -118,7 +124,71 @@ public sealed partial class WindowsTextInjector : ITextInjector
         }
     }
 
-    private static TextInjectionResult PasteThroughClipboard(string text, bool pressEnter)
+    /// <summary>
+    /// Holds the transcript on the clipboard long enough for the target to read it. Returns false
+    /// when somebody has copied something else meanwhile — the one case where handing the previous
+    /// contents back would destroy what they just copied. The question asked is whether the
+    /// transcript is still there, not whether the clipboard sequence number moved: that number is
+    /// bumped by anything that touches the clipboard, Windows' own clipboard history included, so
+    /// it reported a takeover on a machine where nobody had copied anything.
+    /// </summary>
+    private static bool WaitBeforeRestoring(string transcript)
+    {
+        for (var waited = 0; waited < PasteHoldMilliseconds; waited += PasteHoldPollMilliseconds)
+        {
+            Thread.Sleep(PasteHoldPollMilliseconds);
+            if (ReadClipboardText() is { } current && !string.Equals(current, transcript, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>The clipboard's Unicode text, or null when it holds none or cannot be opened.</summary>
+    private static string? ReadClipboardText()
+    {
+        if (!TryOpenClipboard())
+        {
+            return null;
+        }
+
+        try
+        {
+            var handle = GetClipboardData(ClipboardUnicodeText);
+            if (handle == nint.Zero)
+            {
+                return null;
+            }
+
+            var pointer = GlobalLock(handle);
+            if (pointer == nint.Zero)
+            {
+                return null;
+            }
+
+            try
+            {
+                return Marshal.PtrToStringUni(pointer);
+            }
+            finally
+            {
+                _ = GlobalUnlock(pointer);
+            }
+        }
+        finally
+        {
+            CloseClipboard();
+        }
+    }
+
+    /// <summary>
+    /// The clipboard half of a paste. <paramref name="sendChord"/> is false only for the
+    /// --paste-probe diagnostic, which measures how long the transcript is available without
+    /// typing into whatever the person is using.
+    /// </summary>
+    internal static TextInjectionResult PasteThroughClipboard(string text, bool pressEnter, bool sendChord = true)
     {
         if (!TryOpenClipboard())
         {
@@ -129,6 +199,7 @@ public sealed partial class WindowsTextInjector : ITextInjector
         // Anything captured has to be handed back or released, including on the failure paths, so
         // every exit from here runs through RestoreClipboard.
         var previousContents = new List<ClipboardEntry>();
+        var written = false;
         try
         {
             try
@@ -146,7 +217,12 @@ public sealed partial class WindowsTextInjector : ITextInjector
                 CloseClipboard();
             }
 
-            SendPasteChord(pressEnter);
+            written = true;
+            if (sendChord)
+            {
+                SendPasteChord(pressEnter);
+            }
+
             return TextInjectionResult.Success();
         }
         catch (Exception exception) when (exception is Win32Exception or OverflowException)
@@ -155,7 +231,19 @@ public sealed partial class WindowsTextInjector : ITextInjector
         }
         finally
         {
-            RestoreClipboard(previousContents);
+            // Nothing reached the clipboard on the failure paths, so there is nothing to wait for
+            // and the previous contents go straight back.
+            if (!written || WaitBeforeRestoring(text))
+            {
+                RestoreClipboard(previousContents);
+            }
+            else
+            {
+                foreach (var entry in previousContents)
+                {
+                    ReleaseHandle(entry);
+                }
+            }
         }
     }
 
@@ -270,7 +358,6 @@ public sealed partial class WindowsTextInjector : ITextInjector
             return;
         }
 
-        Thread.Sleep(PasteSettleMilliseconds);
         var transferred = false;
         try
         {

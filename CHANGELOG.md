@@ -23,6 +23,17 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   acting as a room microphone — accrued about 115 MB an hour that nothing would read. The default
   is unchanged, so Bantz and any existing consumer keep the recording they expect. ([#5])
 
+### Fixed
+
+- Compatibility mode pastes into Remote Desktop again — the case it exists for. Bantz put the
+  transcript on the clipboard, sent Ctrl+V and took the transcript back 250 ms later. `SendInput`
+  only queues the keystrokes, so that quarter-second was a race against the target reading the
+  clipboard: a local text box won it, and a Remote Desktop session, which fetches clipboard data
+  across the wire when the remote application asks for it, did not. The transcript had been
+  withdrawn before it could be read, and nothing was pasted. It now stays on the clipboard for up
+  to 2.5 seconds. Anything copied during that time is left alone rather than overwritten by the
+  restore, which the old code would do.
+
 ### Changed
 
 - **Breaking, for anyone implementing `ITranscriptionEngine`.** `IsReady`, `InitializeAsync` and

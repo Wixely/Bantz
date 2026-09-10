@@ -132,6 +132,12 @@ if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 }
 
 var injector = new WindowsTextInjector(() => model.ClipboardPaste);
+if (ArgumentValue(args, "--paste-probe") is { Length: > 0 } probeText)
+{
+    ProbePaste(probeText);
+    return;
+}
+
 using var workflow = new DictationWorkflow(
     recorder,
     engine,
@@ -499,6 +505,19 @@ static List<(float X, float Y, float Delta)> WheelPoints(string[] values)
     }
 
     return points;
+}
+
+// Measures how long compatibility mode leaves the transcript on the clipboard, and whether the
+// previous contents come back. Skips the keystrokes, so nothing is typed anywhere.
+static void ProbePaste(string text)
+{
+    // A GUI app has no console to write to, so the timeline goes to a file next to the executable.
+    var log = Path.Combine(AppContext.BaseDirectory, "bantz-paste-probe.txt");
+    var clock = System.Diagnostics.Stopwatch.StartNew();
+    var lines = new List<string> { $"[{clock.ElapsedMilliseconds,5} ms] start" };
+    var result = Bantz.Platform.Windows.WindowsTextInjector.PasteThroughClipboard(text, pressEnter: false, sendChord: false);
+    lines.Add($"[{clock.ElapsedMilliseconds,5} ms] done: {(result.Succeeded ? "ok" : result.Error)}");
+    File.WriteAllLines(log, lines);
 }
 
 static List<(float X, float Y)> ClickPoints(string[] values)
