@@ -243,6 +243,29 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         }
     }
 
+    var scrollTarget = ArgumentValue(args, "--scroll-path");
+    if (!string.IsNullOrWhiteSpace(scrollTarget))
+    {
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        var parts = scrollTarget.Split('|');
+        var path = parts[0];
+        var delta = parts.Length > 1 && float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : 120f;
+        Console.WriteLine($"ScrollCaptured('{path}', {delta}): {document.ScrollCaptured(path, null, delta, 0)}");
+        Console.WriteLine($"Overscroll('{path}', {delta}): {document.Overscroll(path, delta)}");
+    }
+
+    var wheels = WheelPoints(args);
+    if (wheels.Count > 0)
+    {
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        foreach (var (x, y, delta) in wheels)
+        {
+            Console.WriteLine($"wheel ({x:N0},{y:N0}) delta {delta:N0}: {document.DispatchWheel(x, y, delta)}");
+        }
+    }
+
     using var image = renderer.RenderFrames(1, context =>
     {
         context.Canvas.Clear(app.Background);
@@ -314,6 +337,29 @@ input.HotkeyReleased += () =>
     }
 };
 DesktopHost.Run(app);
+
+static List<(float X, float Y, float Delta)> WheelPoints(string[] values)
+{
+    var points = new List<(float X, float Y, float Delta)>();
+    for (var index = 0; index < values.Length - 1; index++)
+    {
+        if (!string.Equals(values[index], "--wheel", StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        var parts = values[index + 1].Split(',');
+        if (parts.Length == 3 &&
+            float.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out var x) &&
+            float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var y) &&
+            float.TryParse(parts[2], System.Globalization.CultureInfo.InvariantCulture, out var delta))
+        {
+            points.Add((x, y, delta));
+        }
+    }
+
+    return points;
+}
 
 static List<(float X, float Y)> ClickPoints(string[] values)
 {

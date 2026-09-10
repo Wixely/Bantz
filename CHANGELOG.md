@@ -21,6 +21,11 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Changed
 
+- The window opens at 700x780 rather than 1170x1300, which fits a laptop screen without being
+  resized. The layout is unchanged; it is drawn smaller.
+- Long lists carry Up and Down buttons. The interface runtime paints a scroll indicator that cannot
+  be dragged, and offers no way to scroll a region from application code, so the buttons send the
+  wheel events that do work. Wheel scrolling is unaffected.
 - The model and language are read for each transcription, so changing either applies to the next
   one without a restart.
 - Diagnostics reports the language and model in use rather than a fixed "English (en)".

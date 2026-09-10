@@ -8,6 +8,15 @@ public sealed class InitialWindowSizeTests
     private static readonly InitialWindowSize Preferred = new(1170, 1300);
 
     [Fact]
+    public void TheWindowOpensSmallEnoughForAModestLaptop()
+    {
+        var preferred = Bantz.Ui.BantzApp.PreferredWindowSize;
+
+        Assert.Equal(new InitialWindowSize(700, 780), preferred);
+        Assert.Equal(preferred, InitialWindowSize.FitWithinWorkArea(preferred, 1366, 900));
+    }
+
+    [Fact]
     public void PreferredSizeIsKeptWhenItFitsTheWorkArea()
     {
         var result = InitialWindowSize.FitWithinWorkArea(Preferred, 1920, 1440);

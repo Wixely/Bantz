@@ -28,7 +28,7 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .config-page { gap:10px; }
 
 .onboarding-page,.storage-page { align-items:center; justify-content:center; }
-.onboarding-card { width:498px; height:602px; flex:none; padding:27px 30px; border:1px solid #315547; border-radius:24px; background:linear-gradient(150deg,#162921,#141a24); display:flex; flex-direction:column; gap:14px; }
+.onboarding-card { width:498px; height:604px; flex:none; padding:27px 30px; border:1px solid #315547; border-radius:24px; background:linear-gradient(150deg,#162921,#141a24); display:flex; flex-direction:column; gap:14px; }
 .storage-card { width:498px; padding:27px 30px; border:1px solid #315547; border-radius:24px; background:linear-gradient(150deg,#162921,#141a24); display:flex; flex-direction:column; gap:14px; }
 .storage-card h2 { font-size:25px; }
 .storage-card > p { margin:0; color:#aab5c5; font-size:12px; line-height:1.5; }
@@ -56,8 +56,8 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .runtime-pick:hover { border-color:#ff9d57; }
 .choice-badge { color:#68e0b1; font-size:9px; font-weight:700; letter-spacing:1px; }
 .compatibility-badge { color:#9aa5b7; }
-.model-setup { height:252px; flex-shrink:0; padding:12px 14px; border:1px solid #2b3345; border-radius:13px; background:#111720; display:flex; flex-direction:column; gap:10px; }
-.setup-choices { height:174px; flex:none; display:flex; flex-direction:column; gap:4px; }
+.model-setup { height:264px; flex-shrink:0; padding:12px 14px; border:1px solid #2b3345; border-radius:13px; background:#111720; display:flex; flex-direction:column; gap:10px; }
+.setup-choices { height:186px; flex:none; display:flex; flex-direction:column; gap:4px; }
 .setup-label { flex:none; color:#8f9bac; font-size:9px; font-weight:700; letter-spacing:.6px; }
 .setup-list { height:68px; flex:none; padding-right:12px; display:flex; flex-direction:column; gap:4px; }
 .binding-row.setup-row { flex:none; height:32px; padding:4px 8px 4px 10px; }
@@ -180,6 +180,11 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .section-heading { height:30px; flex:none; display:flex; justify-content:space-between; }
 .section-heading > div { display:flex; flex-direction:column; gap:3px; }
 .section-heading .cupri-button { padding:6px 9px; border-radius:8px; font-size:10px; }
+/* .section-heading > div lays its children out in a column; these two belong side by side. */
+.section-heading > div.scroll-controls { flex:none; flex-direction:row; align-items:center; gap:6px; }
+.scroll-controls .cupri-button { width:46px; padding:5px 6px; border-radius:8px; font-size:10px; }
+.setup-label-row { height:16px; flex:none; display:flex; align-items:center; gap:6px; }
+.setup-label-row .cupri-button { width:42px; flex:none; padding:2px 5px; border-radius:6px; font-size:8px; }
 .binding-list { height:74px; flex:none; }
 .binding-scroll { overflow:scroll; }
 .binding-empty { height:98px; flex:none; padding:12px 14px; border:1px dashed #3a465d; border-radius:11px; background:#151c28; color:#718099; align-items:center; justify-content:center; gap:10px; }

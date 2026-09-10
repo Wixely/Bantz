@@ -28,6 +28,7 @@ public sealed class BantzApp : CupriApp
     private BindingCapturePurpose _bindingCapturePurpose;
     private bool _modelDownloadInProgress;
     private bool _iconShortcutsEnabled;
+    private CupriDocument? _document;
     private bool _isRecording;
     private string _latestTranscript = "";
 
@@ -69,7 +70,7 @@ public sealed class BantzApp : CupriApp
     public event Action<bool>? RecordingStateChanged;
 
     public override string Title => "Bantz";
-    public static InitialWindowSize PreferredWindowSize { get; } = new(1170, 1300);
+    public static InitialWindowSize PreferredWindowSize { get; } = new(700, 780);
     public override int Width => _initialWindowSize.Width;
     public override int Height => _initialWindowSize.Height;
     public override SKColor Background => new(0x0d, 0x10, 0x17);
@@ -89,8 +90,22 @@ public sealed class BantzApp : CupriApp
         return new PresentInfo(windowWidth / zoom, windowHeight / zoom, zoom);
     }
 
+    // CupriFace 0.20.0 paints a scroll indicator but does not let it be dragged, and exposes no
+    // way to scroll a region by selector. Wheel events do work, so the list controls send one at a
+    // point inside the list. These are the centres of those lists in layout units, which do not
+    // change with the window size.
+    private static readonly (float X, float Y) ModelsListPoint = (300, 320);
+    private static readonly (float X, float Y) LanguagesListPoint = (300, 560);
+    private static readonly (float X, float Y) SetupModelsPoint = (336, 452);
+    private static readonly (float X, float Y) SetupLanguagesPoint = (336, 536);
+    private const float ScrollStep = 120f;
+
+    private void ScrollList((float X, float Y) point, float direction) =>
+        _document?.DispatchWheel(point.X, point.Y, ScrollStep * direction);
+
     public override void Configure(CupriDocument document)
     {
+        _document = document;
         document.OnClick(".storage-portable", _ => SelectStorage(StorageMode.Portable));
         document.OnClick(".storage-user", _ => SelectStorage(StorageMode.PerUser));
         document.OnPointer("data-ptt", pointerEvent =>
@@ -118,6 +133,14 @@ public sealed class BantzApp : CupriApp
         document.OnClick(".config-tab-input", _ => OpenInputDevices());
         document.OnClick(".config-tab-models", _ => OpenModels());
         document.OnClick(".input-devices-refresh", _ => RefreshInputDevices());
+        document.OnClick(".models-up", _ => ScrollList(ModelsListPoint, -1));
+        document.OnClick(".models-down", _ => ScrollList(ModelsListPoint, 1));
+        document.OnClick(".languages-up", _ => ScrollList(LanguagesListPoint, -1));
+        document.OnClick(".languages-down", _ => ScrollList(LanguagesListPoint, 1));
+        document.OnClick(".setup-models-up", _ => ScrollList(SetupModelsPoint, -1));
+        document.OnClick(".setup-models-down", _ => ScrollList(SetupModelsPoint, 1));
+        document.OnClick(".setup-languages-up", _ => ScrollList(SetupLanguagesPoint, -1));
+        document.OnClick(".setup-languages-down", _ => ScrollList(SetupLanguagesPoint, 1));
         document.OnClick(".config-tab-keybinds", _ => OpenConfigTab("keybinds"));
         document.OnClick(".config-tab-diagnostics", _ => OpenDiagnostics());
         document.OnClick(".config-tab-about", _ => OpenConfigTab("about"));
