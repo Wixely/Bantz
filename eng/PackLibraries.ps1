@@ -31,6 +31,16 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Packing $project failed." }
     }
 
+    # The sample pins concrete versions so it can be copied out of the repository. A version bump
+    # that forgets them fails the consumer restore with an opaque NU1603, so say so plainly here.
+    $version = (dotnet msbuild (Join-Path $repoRoot 'src/Bantz.App/Bantz.App.csproj') -getProperty:Version).Trim()
+    $samplePath = Join-Path $repoRoot 'samples/MinimalDictation/MinimalDictation.csproj'
+    $pinned = @(Select-String -LiteralPath $samplePath -Pattern 'Include="Bantz\.[^"]+" Version="([^"]+)"' -AllMatches |
+        ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    if ($pinned.Count -ne 1 -or $pinned[0] -ne $version) {
+        throw "MinimalDictation pins Bantz $($pinned -join ', ') but this build packs $version. Update samples/MinimalDictation/MinimalDictation.csproj."
+    }
+
     $packages = @(Get-ChildItem -LiteralPath $packageRoot -Filter 'Bantz.*.nupkg' -File)
     $symbols = @(Get-ChildItem -LiteralPath $packageRoot -Filter 'Bantz.*.snupkg' -File)
     if ($packages.Count -ne 4 -or $symbols.Count -ne 4) {
