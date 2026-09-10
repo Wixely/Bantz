@@ -2,6 +2,10 @@ using Bantz.Speech;
 using NAudio;
 using NAudio.Wave;
 
+// Bantz.Speech.WaveFormat (what a WAV header declares) and NAudio.Wave.WaveFormat (what NAudio
+// records into) are both in scope here. This file means NAudio's.
+using WaveFormat = NAudio.Wave.WaveFormat;
+
 namespace Bantz.Capture;
 
 /// <summary>Captures 16 kHz mono PCM from a Windows wave-in device.</summary>

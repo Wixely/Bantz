@@ -3,6 +3,21 @@
 All notable changes to Bantz are recorded here. Versions follow `MAJOR.MINOR.PATCH`; while Bantz
 is pre-1.0 a minor bump may change behaviour you rely on.
 
+## Unreleased
+
+### Added
+
+- `WaveHeader.TryParse`, which reads the RIFF/WAVE header `PcmAudio.CreateWaveStream` writes, for
+  audio arriving from somewhere else — a speech server replying with `response_format: wav`, where
+  the header is the only place the sample rate is stated. It walks the chunk list rather than
+  assuming the canonical 44-byte layout, since servers interpose `LIST` and `fact` chunks that a
+  fixed offset would play as audio, and it ignores the `data` chunk's declared size, since a server
+  streaming a synthesis writes `0` or `0xFFFFFFFF` there and the stream ending is what ends the
+  audio. Encodings whose samples are not integers are refused rather than handed back as PCM.
+  ([#7])
+
+[#7]: https://github.com/Wixely/Bantz/issues/7
+
 ## 0.4.0
 
 ### Added
