@@ -57,6 +57,7 @@ public sealed class BantzApp : CupriApp
         _workflow.SnapshotChanged += ApplySnapshot;
         signalAnalyzer.FrameAnalyzed += ApplyAudioSignal;
         _model.SettingsChanged += SaveSettings;
+        _model.SettingsChanged += UpdateModelSetup;
         _model.AdvancedBindingsVisibilityChanged += HandleAdvancedBindingsVisibilityChanged;
         UpdateModelSetup();
         ApplySnapshot(_workflow.Snapshot);
@@ -226,10 +227,13 @@ public sealed class BantzApp : CupriApp
             _model.ModelDownloadLabel = "Continue";
             _model.ModelDownloadStatus = "Model downloaded. Bantz is ready to work offline.";
         }
-        catch (Exception exception) when (exception is HttpRequestException or IOException or UnauthorizedAccessException or OperationCanceledException)
+        catch (Exception exception) when (exception is HttpRequestException or IOException
+            or UnauthorizedAccessException or OperationCanceledException or InvalidDataException)
         {
             _model.ModelDownloadLabel = "Retry download";
-            _model.ModelDownloadStatus = "Download failed. Check the connection and try again.";
+            _model.ModelDownloadStatus = exception is InvalidDataException
+                ? "The download did not arrive intact. Try again."
+                : "Download failed. Check the connection and try again.";
         }
         finally
         {
@@ -244,7 +248,7 @@ public sealed class BantzApp : CupriApp
         {
             _model.ModelDownloadPercent = 100;
             _model.ModelDownloadLabel = "Continue";
-            _model.ModelDownloadStatus = $"{_model.SelectedModel.DisplayName} is installed and ready.";
+            _model.ModelDownloadStatus = $"{_model.SelectedModel.DisplayName} is installed and ready." + LanguageCaveat();
             return;
         }
 
@@ -253,10 +257,19 @@ public sealed class BantzApp : CupriApp
             (_engine.IsModelAvailable ? 0 : _model.SelectedModel.DownloadBytes);
         var downloadMiB = requiredBytes / 1_048_576d;
         _model.ModelDownloadLabel = $"Download {downloadMiB:N0} MiB";
-        _model.ModelDownloadStatus = runtimeInstalled
-            ? "The runtime is installed; download the speech model to continue."
-            : "Downloads the selected runtime and speech model, then works offline.";
+        _model.ModelDownloadStatus = (runtimeInstalled
+            ? "The runtime is installed; the model is still needed."
+            : "Downloads the runtime and model.") + LanguageCaveat();
     }
+
+    /// <summary>
+    /// Says so when the chosen language cannot apply to the chosen model, which is otherwise only
+    /// discoverable by transcribing and finding English.
+    /// </summary>
+    private string LanguageCaveat() =>
+        _model.SelectedModel.IsMultilingual || string.Equals(_model.SpeechLanguage, "en", StringComparison.Ordinal)
+            ? string.Empty
+            : $" {_model.LanguageName} needs a multilingual model.";
 
     public void OpenDiagnostics()
     {
@@ -829,6 +842,13 @@ public sealed partial class BantzModel
 
     /// <summary>The model transcription will use.</summary>
     public WhisperModel SelectedModel => WhisperModelCatalog.Resolve(_modelId);
+
+    /// <summary>The chosen model's id, for pickers that bind to a value.</summary>
+    public string SelectedModelId
+    {
+        get => SelectedModel.Id;
+        set => SelectModel(value);
+    }
 
     /// <summary>The language the person chose, whether or not this model can honour it.</summary>
     public string SpeechLanguage

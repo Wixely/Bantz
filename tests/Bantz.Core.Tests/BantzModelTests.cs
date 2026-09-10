@@ -90,6 +90,33 @@ public sealed class BantzModelTests
     }
 
     [Fact]
+    public void FirstRunStartsOnTheEnglishBaseModelAndEnglish()
+    {
+        // What the first-run card offers before anything is chosen.
+        var model = new BantzModel(AppSettings.Defaults());
+
+        Assert.Equal("base.en", model.SelectedModelId);
+        Assert.Equal("Base (English)", model.SelectedModelName);
+        Assert.Equal("en", model.SpeechLanguage);
+        Assert.Equal("English", model.LanguageName);
+    }
+
+    [Fact]
+    public void TheModelPickerRoundTripsThroughItsId()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+
+        model.SelectedModelId = "large-v3-turbo";
+
+        Assert.Equal("large-v3-turbo", model.SelectedModelId);
+        Assert.Equal("large-v3-turbo", model.ToSettings().ModelId);
+
+        model.SelectedModelId = "not-a-model";
+
+        Assert.Equal("base.en", model.SelectedModelId);
+    }
+
+    [Fact]
     public void ALanguageCanBeChosenWhileAnEnglishOnlyModelIsInUse()
     {
         var model = new BantzModel(AppSettings.Defaults());

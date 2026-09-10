@@ -40,7 +40,7 @@
       <span class="eyebrow">FIRST-RUN SETUP</span>
       <h2>How should Bantz run Whisper?</h2>
       <p class="whisper-explainer">Whisper is an on-device speech-recognition engine that turns your voice into text.</p>
-      <p class="runtime-intro">Choose the runtime Bantz should download. You can change this later in Settings.</p>
+      <p class="runtime-intro">Choose the runtime, model and language Bantz should start with. All three can be changed later in Settings.</p>
       <div class="runtime-choices">
         <div class="runtime-choice recommended {{GpuRuntimeClass}}">
           <span class="choice-badge">RECOMMENDED</span>
@@ -56,9 +56,46 @@
         </div>
       </div>
       <div class="model-setup">
-        <div class="model-copy"><strong>English Base speech model</strong><span>{{ModelDownloadStatus}}</span></div>
-        <cupri-progress value="{{ModelDownloadPercent}}" max="100" aria-label="Speech model download progress"></cupri-progress>
-        <cupri-button class="model-download">{{ModelDownloadLabel}}</cupri-button>
+        <div class="setup-choices">
+          <cupri-select value="{{SelectedModelId}}" aria-label="Speech model">
+            <cupri-option value="tiny.en">Tiny (English)</cupri-option>
+            <cupri-option value="tiny">Tiny</cupri-option>
+            <cupri-option value="base.en">Base (English)</cupri-option>
+            <cupri-option value="base">Base</cupri-option>
+            <cupri-option value="small.en">Small (English)</cupri-option>
+            <cupri-option value="small">Small</cupri-option>
+            <cupri-option value="medium.en">Medium (English)</cupri-option>
+            <cupri-option value="medium">Medium</cupri-option>
+            <cupri-option value="large-v3-turbo">Large v3 Turbo</cupri-option>
+          </cupri-select>
+          <cupri-select value="{{SpeechLanguage}}" aria-label="Speech language">
+            <cupri-option value="auto">Detect automatically</cupri-option>
+            <cupri-option value="en">English</cupri-option>
+            <cupri-option value="ar">Arabic</cupri-option>
+            <cupri-option value="zh">Chinese</cupri-option>
+            <cupri-option value="cs">Czech</cupri-option>
+            <cupri-option value="nl">Dutch</cupri-option>
+            <cupri-option value="fr">French</cupri-option>
+            <cupri-option value="de">German</cupri-option>
+            <cupri-option value="hi">Hindi</cupri-option>
+            <cupri-option value="it">Italian</cupri-option>
+            <cupri-option value="ja">Japanese</cupri-option>
+            <cupri-option value="ko">Korean</cupri-option>
+            <cupri-option value="pl">Polish</cupri-option>
+            <cupri-option value="pt">Portuguese</cupri-option>
+            <cupri-option value="ru">Russian</cupri-option>
+            <cupri-option value="es">Spanish</cupri-option>
+            <cupri-option value="sv">Swedish</cupri-option>
+            <cupri-option value="tr">Turkish</cupri-option>
+            <cupri-option value="uk">Ukrainian</cupri-option>
+            <cupri-option value="vi">Vietnamese</cupri-option>
+          </cupri-select>
+        </div>
+        <div class="setup-progress">
+          <span class="setup-status">{{ModelDownloadStatus}}</span>
+          <cupri-progress value="{{ModelDownloadPercent}}" max="100" aria-label="Speech model download progress"></cupri-progress>
+          <cupri-button class="model-download">{{ModelDownloadLabel}}</cupri-button>
+        </div>
       </div>
       <p class="privacy-copy">Whichever you choose, audio and transcription remain on this device.</p>
     </div>
