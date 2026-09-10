@@ -5,6 +5,7 @@ body { margin:0; --cupri-bg:#0d1017; --cupri-surface:#1c2230; --cupri-text:#f6f2
 .cupri-button:hover { background:#d78638; }
 .cupri-button.ghost:hover { background:#251c17; color:#ffad68; border-color:#ff9d57; }
 .cupri-button:active,.config-cog:active,.back-control:active,.runtime-pick:active,.runtime-option:active { transform:scale(.97); }
+.cupri-button { cursor:pointer; }
 .cupri-switch { cursor:pointer; border:1px solid transparent; transition:background 180ms ease,border-color 160ms ease; }
 .cupri-switch:hover { border-color:#6d778a; }
 .cupri-switch.on:hover { border-color:#e5a05e; }
@@ -119,7 +120,9 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .config-tab.selected { border-color:#c9782d; background:#c9782d; color:#fff; }
 .config-body { flex:none; }
 .settings-panel,.bindings-panel,.diagnostic-grid { flex-shrink:0; background:#161b26; border:1px solid #2b3345; border-radius:16px; }
-.settings-panel,.diagnostic-grid { overflow:hidden; }
+.diagnostic-grid { overflow:hidden; }
+/* More setting rows than the panel is tall, so the last ones stay reachable by scrolling. */
+.settings-panel { overflow:scroll; }
 .settings-panel { height:430px; display:flex; flex-direction:column; }
 .setting-row { height:41px; flex-shrink:0; padding:10px 15px; border-bottom:1px solid #2b3345; display:flex; align-items:center; gap:10px; transition:background 240ms ease; }
 .setting-row:hover { background:#171c27; }
@@ -138,6 +141,12 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .tray-visibility-row .cupri-button { width:220px; flex:none; padding:7px 10px; border-radius:9px; font-size:11px; }
 .bindings-panel { padding:14px 15px; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
 .keybinds-panel { height:390px; }
+.input-panel { height:390px; }
+.device-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:7px; }
+
+.device-row.selected { background:#20313b; box-shadow:inset 0 0 0 1px #68e0b1; }
+.device-row.selected .device-badge { background:#1f4a41; }
+.capture-message.device-missing { border-color:#5d3a3a; background:#33232a; color:#ff917f; }
 .section-heading { height:30px; flex:none; display:flex; justify-content:space-between; }
 .section-heading > div { display:flex; flex-direction:column; gap:3px; }
 .section-heading .cupri-button { padding:6px 9px; border-radius:8px; font-size:10px; }

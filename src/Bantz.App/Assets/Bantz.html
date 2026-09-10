@@ -110,6 +110,7 @@
 
     <nav class="config-tabs" role="tablist" aria-label="Configuration sections">
       <div class="config-tab config-tab-settings {{SettingsTabClass}}" role="tab" aria-selected="{{SettingsTabSelected}}">Settings</div>
+      <div class="config-tab config-tab-input {{InputTabClass}}" role="tab" aria-selected="{{InputTabSelected}}">Input</div>
       <div class="config-tab config-tab-keybinds {{KeybindsTabClass}}" role="tab" aria-selected="{{KeybindsTabSelected}}">Keybinds</div>
       <div class="config-tab config-tab-diagnostics {{DiagnosticsTabClass}}" role="tab" aria-selected="{{DiagnosticsTabSelected}}">Diagnostics</div>
       <div class="config-tab config-tab-about {{AboutTabClass}}" role="tab" aria-selected="{{AboutTabSelected}}">About</div>
@@ -132,8 +133,16 @@
         <div class="setting-control-slot"><cupri-switch checked="{{AutoEnter}}" aria-label="Press Enter after dictation"></cupri-switch></div>
       </div>
       <div class="setting-row">
+        <div><strong>Compatibility mode (clipboard paste)</strong><span>{{ClipboardPasteHint}}</span></div>
+        <div class="setting-control-slot"><cupri-switch checked="{{ClipboardPaste}}" aria-label="Paste transcripts using the clipboard"></cupri-switch></div>
+      </div>
+      <div class="setting-row">
         <div><strong>Always on top</strong><span>Keep Bantz above other application windows.</span></div>
         <div class="setting-control-slot"><cupri-switch checked="{{AlwaysOnTop}}" aria-label="Keep Bantz always on top"></cupri-switch></div>
+      </div>
+      <div class="setting-row">
+        <div><strong>PTT shortcuts</strong><span>{{ShortcutToggleHint}}</span></div>
+        <div class="setting-control-slot"><cupri-switch checked="{{ShortcutsEnabled}}" aria-label="Enable PTT shortcuts"></cupri-switch></div>
       </div>
       <div class="setting-row delay-row">
         <div><strong>Delay after button click</strong><span>Time to focus a destination after transcription.</span></div>
@@ -155,6 +164,24 @@
         <div><strong>Tray icon visibility</strong><span>Choose whether Windows keeps Bantz outside the overflow menu.</span></div>
         <cupri-button class="tray-icon-settings" variant="ghost">Always show tray icon…</cupri-button>
       </div>
+    </section>
+
+    <section class="bindings-panel input-panel config-body" style="display:{{InputTabDisplay}}">
+      <div class="section-heading">
+        <div><strong>Microphone</strong><span>Bantz records 16 kHz mono audio from the device you choose.</span></div>
+        <cupri-button class="input-devices-refresh" variant="ghost">Refresh</cupri-button>
+      </div>
+      <div class="binding-empty" style="display:{{EmptyInputDevicesDisplay}}">
+        <cupri-icon name="info" size="18"></cupri-icon>
+        <div><strong>No microphones found</strong><span>Connect a recording device, then choose Refresh.</span></div>
+      </div>
+      <div class="device-list binding-scroll" style="display:{{InputDeviceListDisplay}}" role="list">
+        <div class="binding-row device-row {{RowClass}}" role="listitem" data-repeat="InputDeviceRows">
+          <span class="device-badge">{{Badge}}</span><strong>{{Name}}</strong>
+          <cupri-button variant="ghost" data-select-input-device="{{Id}}">{{ActionLabel}}</cupri-button>
+        </div>
+      </div>
+      <div class="capture-message {{InputDeviceStatusClass}}" aria-live="polite">{{InputDeviceStatus}}</div>
     </section>
 
     <section class="bindings-panel keybinds-panel config-body" style="display:{{KeybindsTabDisplay}}">

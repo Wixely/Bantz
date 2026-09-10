@@ -8,7 +8,7 @@ namespace Bantz.Capture;
 public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
 {
     private readonly AudioSignalAnalyzer _signalAnalyzer;
-    private readonly AudioCaptureOptions _options;
+    private readonly Func<AudioCaptureOptions> _optionsProvider;
     private readonly object _sync = new();
     private WaveInEvent? _input;
     private MemoryStream? _pcm;
@@ -19,9 +19,19 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
     public WindowsAudioRecorder(
         AudioSignalAnalyzer? signalAnalyzer = null,
         AudioCaptureOptions? options = null)
+        : this(signalAnalyzer, () => options ?? AudioCaptureOptions.Default)
     {
+    }
+
+    /// <summary>
+    /// Creates a recorder that reads its options as each session starts, so a device chosen
+    /// while the application runs applies to the next recording.
+    /// </summary>
+    public WindowsAudioRecorder(AudioSignalAnalyzer? signalAnalyzer, Func<AudioCaptureOptions> optionsProvider)
+    {
+        ArgumentNullException.ThrowIfNull(optionsProvider);
         _signalAnalyzer = signalAnalyzer ?? new AudioSignalAnalyzer();
-        _options = options ?? AudioCaptureOptions.Default;
+        _optionsProvider = optionsProvider;
     }
 
     public event Action<AudioFrame>? FrameCaptured;
@@ -44,7 +54,7 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
             _stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _input = new WaveInEvent
             {
-                DeviceNumber = ResolveDeviceNumber(_options.DeviceId),
+                DeviceNumber = ResolveDeviceNumber(_optionsProvider().DeviceId),
                 WaveFormat = new WaveFormat(PcmAudio.SpeechSampleRate, 16, PcmAudio.SpeechChannels),
                 BufferMilliseconds = 50,
             };

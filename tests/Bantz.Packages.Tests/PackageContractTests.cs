@@ -54,6 +54,93 @@ public sealed class PackageContractTests
     }
 
     [Fact]
+    public void DeviceEnumerationAlwaysOffersTheSystemDefaultFirst()
+    {
+        var devices = AudioCaptureDevices.List();
+
+        Assert.NotEmpty(devices);
+        Assert.Equal(AudioCaptureDevices.DefaultId, devices[0].Id);
+        Assert.All(devices, device => Assert.False(string.IsNullOrWhiteSpace(device.Name)));
+    }
+
+    [Fact]
+    public void AlsaListingsBecomeSelectableDevices()
+    {
+        const string listing = @"null
+    Discard all samples
+default
+    Default Audio Device
+sysdefault:CARD=PCH
+    HDA Intel PCH, ALC257 Analog
+    Default Audio Device
+plughw:CARD=PCH,DEV=0
+";
+
+        var devices = AudioCaptureDevices.ParseAlsaDevices(listing);
+
+        Assert.Equal(AudioCaptureDevices.DefaultId, devices[0].Id);
+        Assert.DoesNotContain(devices, device => device.Id == "null");
+        Assert.Equal(3, devices.Length);
+        Assert.Equal("sysdefault:CARD=PCH", devices[1].Id);
+        Assert.Equal("HDA Intel PCH, ALC257 Analog", devices[1].Name);
+        Assert.Equal("plughw:CARD=PCH,DEV=0", devices[2].Id);
+        Assert.Equal("plughw:CARD=PCH,DEV=0", devices[2].Name);
+    }
+
+    [Fact]
+    public void TruncatedWaveInNamesAreCompletedFromTheAudioEndpoints()
+    {
+        // Wave-in cuts names to 31 characters; Core Audio reports them in full.
+        string[] endpoints =
+        [
+            "Microphone (Steam Streaming Microphone)",
+            "Microphone (SteelSeries Arctis 7 Chat)",
+        ];
+        var claimed = new bool[endpoints.Length];
+
+        var arctis = AudioCaptureDevices.ExpandDeviceName("Microphone (SteelSeries Arctis", 0, endpoints, claimed);
+        var steam = AudioCaptureDevices.ExpandDeviceName("Microphone (Steam Streaming Mic", 1, endpoints, claimed);
+
+        Assert.Equal("Microphone (SteelSeries Arctis 7 Chat)", arctis);
+        Assert.Equal("Microphone (Steam Streaming Microphone)", steam);
+    }
+
+    [Fact]
+    public void IdenticalMicrophonesClaimSeparateEndpointNames()
+    {
+        string[] endpoints = ["Microphone (USB Audio)", "Microphone (USB Audio)"];
+        var claimed = new bool[endpoints.Length];
+
+        var first = AudioCaptureDevices.ExpandDeviceName("Microphone (USB Audio)", 0, endpoints, claimed);
+        var second = AudioCaptureDevices.ExpandDeviceName("Microphone (USB Audio)", 1, endpoints, claimed);
+
+        Assert.Equal("Microphone (USB Audio)", first);
+        Assert.Equal("Microphone (USB Audio)", second);
+        Assert.All(claimed, Assert.True);
+    }
+
+    [Fact]
+    public void AWaveInNameSurvivesWhenNoEndpointMatchesIt()
+    {
+        string[] endpoints = ["Microphone (Something Else)"];
+        var claimed = new bool[endpoints.Length];
+
+        Assert.Equal("Line In (Realtek)", AudioCaptureDevices.ExpandDeviceName("Line In (Realtek)", 2, endpoints, claimed));
+        Assert.Equal("Microphone 3", AudioCaptureDevices.ExpandDeviceName("", 3, endpoints, claimed));
+        Assert.All(claimed, Assert.False);
+    }
+
+    [Fact]
+    public void ARecorderCanReadItsDeviceWhenEachSessionStarts()
+    {
+        var deviceId = "1";
+        using var recorder = new WindowsAudioRecorder(null, () => new AudioCaptureOptions(deviceId));
+
+        Assert.NotNull(recorder);
+        Assert.Throws<ArgumentNullException>(() => new WindowsAudioRecorder(null, (Func<AudioCaptureOptions>)null!));
+    }
+
+    [Fact]
     public void GlobalInputCapabilitiesAreHonestForCurrentPlatform()
     {
         Assert.Equal(OperatingSystem.IsWindows(), GlobalInputCapabilities.Current.SupportsGlobalBindings);

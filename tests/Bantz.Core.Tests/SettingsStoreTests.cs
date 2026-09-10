@@ -114,6 +114,49 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void CompatibilityModeSurvivesRestart()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.ClipboardPaste = true;
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.True(reloaded.ClipboardPaste);
+    }
+
+    [Fact]
+    public void TheChosenMicrophoneSurvivesRestart()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.CaptureDeviceId = "2";
+        settings.CaptureDeviceName = "Blue Yeti";
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.Equal("2", reloaded.CaptureDeviceId);
+        Assert.Equal("Blue Yeti", reloaded.CaptureDeviceName);
+    }
+
+    [Fact]
+    public void ABlankMicrophoneIdMeansTheSystemDefault()
+    {
+        var store = new SettingsStore(SettingsPath);
+        var settings = AppSettings.Defaults();
+        settings.CaptureDeviceId = "   ";
+        settings.CaptureDeviceName = "Blue Yeti";
+
+        store.Save(settings);
+        var reloaded = store.Load();
+
+        Assert.Null(reloaded.CaptureDeviceId);
+        Assert.Null(reloaded.CaptureDeviceName);
+    }
+
+    [Fact]
     public void ShortcutToggleBindingAndEnabledStateSurviveRestart()
     {
         var store = new SettingsStore(SettingsPath);

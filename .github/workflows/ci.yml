@@ -23,11 +23,16 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.300
+      - name: Authenticate the CupriFace package feed
+        shell: pwsh
+        run: >
+          dotnet nuget update source GitHub-Wixely-Packages
+          --username '${{ github.actor }}'
+          --password '${{ github.token }}'
+          --store-password-in-clear-text
+          --configfile NuGet.config
       - name: Format, audit, build, and test
         shell: pwsh
-        env:
-          CUPRIFACE_GITHUB_USER: ${{ github.actor }}
-          CUPRIFACE_GITHUB_TOKEN: ${{ github.token }}
         run: ./eng/Verify.ps1
       - name: Pack libraries and run package-consumer smoke test
         shell: pwsh
@@ -73,11 +78,16 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.300
+      - name: Authenticate the CupriFace package feed
+        shell: pwsh
+        run: >
+          dotnet nuget update source GitHub-Wixely-Packages
+          --username '${{ github.actor }}'
+          --password '${{ github.token }}'
+          --store-password-in-clear-text
+          --configfile NuGet.config
       - name: Publish and smoke test
         shell: pwsh
-        env:
-          CUPRIFACE_GITHUB_USER: ${{ github.actor }}
-          CUPRIFACE_GITHUB_TOKEN: ${{ github.token }}
         run: ./eng/Package.ps1 -Platform '${{ matrix.platform }}'
       - name: Upload release candidate
         uses: actions/upload-artifact@v7

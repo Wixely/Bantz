@@ -22,7 +22,9 @@ Bantz is a small, private hold-to-talk dictation app for Windows, with an experi
 - Under **Keybinds > Advanced**, use `Ctrl+T` (or assign another dedicated input) to enable or disable every hold-to-talk shortcut. PTT shortcuts start disabled because Bantz consumes assigned global inputs while listening for them; the toggle remains active so mouse-wheel, Back, Forward, and other temporary bindings can quickly be restored. Remove the toggle binding in Advanced to disable it too.
 - Set button and shortcut delays independently from 0 to 10 seconds. Button delay starts enabled at five seconds; shortcut delay starts disabled at zero.
 - Enable **Press Enter afterwards** to send Enter after the transcript.
+- Enable **Compatibility mode (clipboard paste)** when a destination drops typed characters, as Remote Desktop sessions and some virtual-machine consoles do. Bantz then puts the transcript on the clipboard and sends Ctrl+V instead of synthesizing each character. On Windows every format the clipboard was holding is copied first and handed back a moment after the paste, so text, images, and copied files survive; colour palettes, owner-drawn formats, and anything over 32 MiB are dropped rather than copied. Copying something else during that moment is overwritten when the previous contents return.
 - Enable **Always on top** to keep Bantz above other windows.
+- Open **Input** to choose which microphone Bantz records from, or leave it on the system default. The list refreshes when the tab opens and from its **Refresh** button. Bantz remembers the device by name, so it finds the same microphone again after device numbers shift, and falls back to the system default while that device is disconnected.
 - On Windows, closing the window keeps Bantz available in the notification area. Left-click its tray icon to restore it, or right-click and choose **Close Bantz** to exit.
 - On first run, choose where all Bantz data lives: a per-user app-data folder, or a portable `BantzData` folder beside the executable.
 - Then choose **GPU (Vulkan)** or **CPU only**. Bantz downloads only the selected pinned Whisper.net runtime, verifies its SHA-256 hash, and extracts only the native files for the current platform. The choice remains editable in Settings; changing to a runtime that is not installed returns to setup on the next launch.
@@ -44,14 +46,24 @@ Windows also requires:
 - Windows 11 x64
 - The Microsoft Visual C++ 2022 x64 runtime required by the native Whisper runtime
 
+GitHub requires authentication for its NuGet feed even though CupriFace is public. Register the
+feed credentials once in your user-level NuGet configuration; the repository's `NuGet.config`
+names the source but deliberately holds no credentials, so never add a token to it or commit one.
+
 ```powershell
-$env:CUPRIFACE_GITHUB_USER = 'your-github-username'
-$env:CUPRIFACE_GITHUB_TOKEN = 'your-read-packages-token'
-dotnet run --project src/Bantz.Windows
+dotnet nuget add source https://nuget.pkg.github.com/Wixely/index.json `
+  --name GitHub-Wixely-Packages `
+  --username 'your-github-username' `
+  --password 'your-read-packages-token' `
+  --configfile "$env:APPDATA\NuGet\NuGet.Config"
 ```
 
-GitHub requires authentication for its NuGet feed even though CupriFace is public. Keep the token
-in your environment or user-level secret store; do not add it to `NuGet.config` or commit it.
+The source name must be `GitHub-Wixely-Packages`, because NuGet matches stored credentials to a
+source by name. Restore then works from any shell, including the VS Code build task:
+
+```powershell
+dotnet run --project src/Bantz.Windows
+```
 
 Use a model already on disk instead of the first-run download:
 
@@ -63,13 +75,19 @@ The `BANTZ_STT_MODEL` environment variable provides the same override. Command-l
 Only one interactive Bantz instance runs by default. Pass `--allow-multiple-instances` to start an
 additional instance, for example when testing two configurations side by side.
 
-The Linux x64 host is experimental. It supports the main hold-to-talk button, local transcription, text insertion, delays, Enter-afterwards, and always-on-top. It requires `glibc` 2.31 or newer and `libstdc++6`. Install `alsa-utils` for recording and either `wtype` (Wayland) or `xdotool` (X11) for text insertion, then run:
+The Linux x64 host is experimental. It supports the main hold-to-talk button, local transcription, text insertion, delays, Enter-afterwards, and always-on-top. It requires `glibc` 2.31 or newer and `libstdc++6`. Install `alsa-utils` for recording and either `wtype` (Wayland) or `xdotool` (X11) for text insertion. Compatibility mode additionally needs `wl-copy` and `wl-paste` (Wayland) or `xclip` (X11). Linux keeps one clipboard type rather than all of them, because those tools own the selection for a single type per invocation; text is preserved when the clipboard offers it, otherwise the first type it advertises. Then run:
 
 ```bash
-export CUPRIFACE_GITHUB_USER='your-github-username'
-export CUPRIFACE_GITHUB_TOKEN='your-read-packages-token'
+dotnet nuget add source https://nuget.pkg.github.com/Wixely/index.json \
+  --name GitHub-Wixely-Packages \
+  --username 'your-github-username' \
+  --password 'your-read-packages-token' \
+  --store-password-in-clear-text \
+  --configfile "$HOME/.nuget/NuGet/NuGet.Config"
 dotnet run --project src/Bantz.Linux
 ```
+
+Linux needs `--store-password-in-clear-text` because NuGet cannot encrypt stored passwords there.
 
 Global keyboard, gamepad, and mouse bindings and window tray behaviour are currently Windows-only. The Vulkan runtime is also experimental on Linux; choose CPU for the compatibility path.
 
@@ -113,6 +131,7 @@ dotnet run --project src/Bantz.Windows -- --snapshot artifacts\bantz-ui.png --sn
 dotnet run --project src/Bantz.Windows -- --page storage --snapshot artifacts\bantz-storage.png
 dotnet run --project src/Bantz.Windows -- --page onboarding --snapshot artifacts\bantz-onboarding.png
 dotnet run --project src/Bantz.Windows -- --page settings --snapshot artifacts\bantz-settings.png
+dotnet run --project src/Bantz.Windows -- --page input --input-preview --snapshot artifacts\bantz-input.png
 dotnet run --project src/Bantz.Windows -- --page keybinds --snapshot artifacts\bantz-keybinds.png
 ```
 

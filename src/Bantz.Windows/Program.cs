@@ -20,6 +20,17 @@ if (args.Length == 3 && string.Equals(args[0], "--build-icon", StringComparison.
     return;
 }
 
+if (args.Contains("--list-inputs", StringComparer.OrdinalIgnoreCase))
+{
+    // A window application has no console to write to, so the report goes to a file.
+    var reportPath = ArgumentValue(args, "--list-inputs") is { Length: > 0 } requested && !requested.StartsWith('-')
+        ? Path.GetFullPath(requested)
+        : Path.Combine(Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory, "bantz-inputs.txt");
+    File.WriteAllText(reportPath, AudioCaptureDevices.Describe());
+    Console.WriteLine(reportPath);
+    return;
+}
+
 if (args.Length == 3 && string.Equals(args[0], "--build-disabled-icon", StringComparison.OrdinalIgnoreCase))
 {
     File.WriteAllBytes(args[2], ShortcutStateIcon.CreateDisabled(File.ReadAllBytes(args[1])));
@@ -54,8 +65,20 @@ if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
 {
     model.ShortcutsEnabled = false;
 }
+var inputPreview = args.Contains("--input-preview", StringComparer.OrdinalIgnoreCase);
+if (inputPreview)
+{
+    model.SetInputDevices([
+        AudioCaptureDevices.Default,
+        new AudioCaptureDevice("0", "Microphone (SteelSeries Arctis 7 Chat)"),
+        new AudioCaptureDevice("1", "Microphone (Steam Streaming Microphone)"),
+        new AudioCaptureDevice("2", "Webcam C920"),
+    ]);
+    model.SelectInputDevice("1");
+}
+
 var signalAnalyzer = new AudioSignalAnalyzer();
-using var recorder = new WindowsAudioRecorder(signalAnalyzer);
+using var recorder = new WindowsAudioRecorder(signalAnalyzer, model.CaptureOptions);
 using var engine = new WhisperTranscriptionEngine(new WhisperOptions
 {
     ModelPathProvider = () => modelOverride ?? storage.ModelPath,
@@ -68,7 +91,7 @@ if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
-var injector = new WindowsTextInjector();
+var injector = new WindowsTextInjector(() => model.ClipboardPaste);
 using var workflow = new DictationWorkflow(
     recorder,
     engine,
@@ -80,6 +103,10 @@ using var workflow = new DictationWorkflow(
     audioSignalSummary: () => signalAnalyzer.Summary);
 var initialWindowSize = WindowsDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
 var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, signalAnalyzer, initialWindowSize);
+if (!inputPreview)
+{
+    app.RefreshInputDevices();
+}
 if (!storage.IsSelected)
 {
     model.Page = "storage";
@@ -93,7 +120,7 @@ var requestedPage = args
     .SkipWhile(value => !string.Equals(value, "--page", StringComparison.OrdinalIgnoreCase))
     .Skip(1)
     .FirstOrDefault();
-if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "input" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
     model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&

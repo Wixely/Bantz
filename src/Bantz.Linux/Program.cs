@@ -43,7 +43,7 @@ if (args.Contains("--shortcuts-disabled", StringComparer.OrdinalIgnoreCase))
     model.ShortcutsEnabled = false;
 }
 var signalAnalyzer = new AudioSignalAnalyzer();
-using var recorder = new LinuxAudioRecorder(signalAnalyzer);
+using var recorder = new LinuxAudioRecorder(signalAnalyzer, model.CaptureOptions);
 using var engine = new WhisperTranscriptionEngine(new WhisperOptions
 {
     ModelPathProvider = () => modelOverride ?? storage.ModelPath,
@@ -56,7 +56,7 @@ if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
     return;
 }
 
-var injector = new LinuxTextInjector();
+var injector = new LinuxTextInjector(() => model.ClipboardPaste);
 using var workflow = new DictationWorkflow(
     recorder,
     engine,
@@ -68,6 +68,7 @@ using var workflow = new DictationWorkflow(
     audioSignalSummary: () => signalAnalyzer.Summary);
 var initialWindowSize = LinuxDisplayWorkArea.FitInitialWindow(BantzApp.PreferredWindowSize);
 var app = new BantzApp(workflow, model, settingsStore, engine, runtimeManager, storage, signalAnalyzer, initialWindowSize);
+app.RefreshInputDevices();
 if (!storage.IsSelected)
 {
     model.Page = "storage";
@@ -78,7 +79,7 @@ else if (settings.Runtime is null || !engine.IsModelAvailable || !runtimeManager
 }
 
 var requestedPage = ArgumentValue(args, "--page");
-if (requestedPage is "main" or "settings" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
+if (requestedPage is "main" or "settings" or "input" or "keybinds" or "diagnostics" or "about" or "onboarding" or "storage")
 {
     model.Page = requestedPage;
     model.AdvancedBindingsExpanded = requestedPage == "keybinds" &&

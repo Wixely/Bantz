@@ -9,6 +9,14 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <PublishTrimmed>true</PublishTrimmed>
+    <!-- Partial trims only assemblies that declare themselves trimmable, which is the framework.
+         AngleSharp, Silk.NET, and the CupriFace shell all resolve types by reflection, so they are
+         copied whole rather than trimmed. -->
+    <TrimMode>partial</TrimMode>
+    <!-- Those dependencies raise trim analysis warnings that this repository cannot fix, and
+         TreatWarningsAsErrors would otherwise fail the publish. -->
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>

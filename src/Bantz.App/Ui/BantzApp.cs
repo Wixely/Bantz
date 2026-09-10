@@ -114,6 +114,8 @@ public sealed class BantzApp : CupriApp
         document.OnClick(".runtime-cpu", _ => SelectRuntime(TranscriptionRuntime.Cpu));
         document.OnClick(".model-download", pointerEvent => { _ = DownloadOrContinueAsync(); });
         document.OnClick(".config-tab-settings", _ => OpenConfigTab("settings"));
+        document.OnClick(".config-tab-input", _ => OpenInputDevices());
+        document.OnClick(".input-devices-refresh", _ => RefreshInputDevices());
         document.OnClick(".config-tab-keybinds", _ => OpenConfigTab("keybinds"));
         document.OnClick(".config-tab-diagnostics", _ => OpenDiagnostics());
         document.OnClick(".config-tab-about", _ => OpenConfigTab("about"));
@@ -140,6 +142,11 @@ public sealed class BantzApp : CupriApp
         document.OnAction("data-remove-binding", action =>
         {
             RemoveBinding(action.Value);
+            return true;
+        });
+        document.OnAction("data-select-input-device", action =>
+        {
+            SelectInputDevice(action.Value);
             return true;
         });
     }
@@ -395,6 +402,21 @@ public sealed class BantzApp : CupriApp
         }
     }
 
+    private void OpenInputDevices()
+    {
+        OpenConfigTab("input");
+        RefreshInputDevices();
+    }
+
+    /// <summary>Re-reads the microphone list so devices connected since startup appear.</summary>
+    public void RefreshInputDevices() => _model.SetInputDevices(AudioCaptureDevices.List());
+
+    private void SelectInputDevice(string id)
+    {
+        _model.SelectInputDevice(id);
+        _model.Status = $"Microphone set to {_model.SelectedInputDeviceName}";
+    }
+
     private void ToggleAdvancedBindings()
     {
         if (!_model.AdvancedBindingsExpanded)
@@ -597,12 +619,16 @@ public sealed partial class BantzModel
 {
     private bool _autoWrite;
     private bool _autoEnter;
+    private bool _clipboardPaste;
     private bool _alwaysOnTop;
     private bool _buttonDelayEnabled;
     private int _buttonDelaySeconds;
     private bool _shortcutDelayEnabled;
     private int _shortcutDelaySeconds;
     private bool _shortcutsEnabled;
+    private string? _captureDeviceId;
+    private string? _captureDeviceName;
+    private IReadOnlyList<AudioCaptureDevice> _inputDevices = [];
     private InputBinding? _shortcutToggleBinding;
     private bool _advancedBindingsExpanded;
     private bool _shortcutInfoExpanded;
@@ -615,15 +641,19 @@ public sealed partial class BantzModel
         _runtimeSelection = (settings.Runtime ?? TranscriptionRuntime.Automatic).ToString();
         _autoWrite = settings.AutoWrite;
         _autoEnter = settings.AutoEnter;
+        _clipboardPaste = settings.ClipboardPaste;
         _alwaysOnTop = settings.AlwaysOnTop;
         _buttonDelayEnabled = settings.ButtonDelayEnabled;
         _buttonDelaySeconds = Math.Clamp(settings.ButtonDelaySeconds, 0, 10);
         _shortcutDelayEnabled = settings.ShortcutDelayEnabled;
         _shortcutDelaySeconds = Math.Clamp(settings.ShortcutDelaySeconds, 0, 10);
         _shortcutsEnabled = settings.ShortcutsEnabled;
+        _captureDeviceId = settings.CaptureDeviceId;
+        _captureDeviceName = settings.CaptureDeviceName;
         _shortcutToggleBinding = settings.ShortcutToggleBinding?.Copy();
         _inputBindings = settings.Bindings.Select(binding => binding.Copy()).ToList();
         RefreshBindingRows();
+        RefreshInputDeviceRows();
     }
 
     public event Action? SettingsChanged;
@@ -633,16 +663,20 @@ public sealed partial class BantzModel
     public string MainDisplay => Page == "main" ? "flex" : "none";
     public string StorageDisplay => Page == "storage" ? "flex" : "none";
     public string OnboardingDisplay => Page == "onboarding" ? "flex" : "none";
-    public string ConfigDisplay => Page is "settings" or "keybinds" or "diagnostics" or "about" ? "flex" : "none";
+    public string ConfigDisplay =>
+        Page is "settings" or "input" or "keybinds" or "diagnostics" or "about" ? "flex" : "none";
     public string SettingsTabDisplay => Page == "settings" ? "flex" : "none";
+    public string InputTabDisplay => Page == "input" ? "flex" : "none";
     public string KeybindsTabDisplay => Page == "keybinds" ? "flex" : "none";
     public string DiagnosticsTabDisplay => Page == "diagnostics" ? "flex" : "none";
     public string AboutTabDisplay => Page == "about" ? "flex" : "none";
     public string SettingsTabClass => Page == "settings" ? "selected" : "";
+    public string InputTabClass => Page == "input" ? "selected" : "";
     public string KeybindsTabClass => Page == "keybinds" ? "selected" : "";
     public string DiagnosticsTabClass => Page == "diagnostics" ? "selected" : "";
     public string AboutTabClass => Page == "about" ? "selected" : "";
     public string SettingsTabSelected => Page == "settings" ? "true" : "false";
+    public string InputTabSelected => Page == "input" ? "true" : "false";
     public string KeybindsTabSelected => Page == "keybinds" ? "true" : "false";
     public string DiagnosticsTabSelected => Page == "diagnostics" ? "true" : "false";
     public string AboutTabSelected => Page == "about" ? "true" : "false";
@@ -670,6 +704,18 @@ public sealed partial class BantzModel
     public string AdvancedCancelCaptureDisplay => AdvancedBindingsExpanded ? CancelCaptureDisplay : "none";
     public int BindingsListHeight => PrimaryCaptureDisplay == "block" ? 205 : 250;
     public List<BindingRow> BindingRows { get; set; } = [];
+    public List<InputDeviceRow> InputDeviceRows { get; set; } = [];
+    public string InputDeviceListDisplay => InputDeviceRows.Count == 0 ? "none" : "block";
+    public string EmptyInputDevicesDisplay => InputDeviceRows.Count == 0 ? "flex" : "none";
+    public string SelectedInputDeviceName => _captureDeviceName ?? _captureDeviceId ?? "System default";
+    public string InputDeviceStatus => _captureDeviceId is null
+        ? "Bantz records from whichever microphone Windows is set to use."
+        : SelectedInputDeviceAvailable
+            ? $"Bantz records from {SelectedInputDeviceName}."
+            : $"{SelectedInputDeviceName} is not connected. Bantz uses the system default until it returns.";
+    public string InputDeviceStatusClass => _captureDeviceId is not null && !SelectedInputDeviceAvailable
+        ? "device-missing"
+        : "";
     public string EmptyBindingsDisplay => BindingRows.Count == 0 ? "flex" : "none";
     public string BindingListDisplay => BindingRows.Count == 0 ? "none" : "block";
     public bool AdvancedBindingsExpanded
@@ -687,6 +733,9 @@ public sealed partial class BantzModel
         }
     }
     internal event Action<bool>? AdvancedBindingsVisibilityChanged;
+    public string ShortcutToggleHint => _shortcutToggleBinding is { } toggle
+        ? $"Global hold-to-talk inputs. {toggle.DisplayName} toggles them from anywhere."
+        : "Global hold-to-talk inputs. Assign a toggle input under Keybinds > Advanced.";
     public string ShortcutStateLabel => ShortcutsEnabled ? "Enabled" : "Disabled";
     public string ShortcutStateClass => ShortcutsEnabled ? "enabled" : "disabled";
     public string ShortcutToggleBindingName => _shortcutToggleBinding?.DisplayName ?? "Not assigned";
@@ -701,7 +750,7 @@ public sealed partial class BantzModel
     public string ShortcutInfoLabel => ShortcutInfoExpanded ? "Hide explanation" : "Why use this?";
     public string ShortcutFooterText => ShortcutsEnabled
         ? "Keyboard, gamepad, and mouse shortcuts are available anywhere."
-        : "PTT shortcuts are disabled. Use Keybinds > Advanced to re-enable them.";
+        : "PTT shortcuts are disabled. Use Settings to re-enable them.";
     public string ShortcutFooterClass => ShortcutsEnabled ? "" : "shortcuts-disabled";
     public string DiagnosticsStatus { get; set; } = "Checking engine";
     public string DiagnosticsSummary { get; set; } = "Reading the local Whisper configuration.";
@@ -748,6 +797,16 @@ public sealed partial class BantzModel
         set => Set(ref _autoEnter, value);
     }
 
+    public bool ClipboardPaste
+    {
+        get => _clipboardPaste;
+        set => Set(ref _clipboardPaste, value);
+    }
+
+    public string ClipboardPasteHint => ClipboardPaste
+        ? "Ctrl+V pastes each transcript, then your clipboard returns."
+        : "Uses the clipboard, for Remote Desktop and similar apps.";
+
     public bool AlwaysOnTop
     {
         get => _alwaysOnTop;
@@ -791,6 +850,76 @@ public sealed partial class BantzModel
         _ => 0,
     };
 
+    /// <summary>Replaces the cached microphone list, keeping the current choice selected.</summary>
+    public void SetInputDevices(IReadOnlyList<AudioCaptureDevice> devices)
+    {
+        _inputDevices = [.. devices];
+        RefreshInputDeviceRows();
+    }
+
+    /// <summary>Chooses a microphone by id; an unknown id falls back to the system default.</summary>
+    public void SelectInputDevice(string id)
+    {
+        var device = _inputDevices.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, id, StringComparison.Ordinal));
+        var isDefault = device is null ||
+            string.Equals(device.Id, AudioCaptureDevices.DefaultId, StringComparison.Ordinal);
+        var selectedId = isDefault ? null : device!.Id;
+        var selectedName = isDefault ? null : device!.Name;
+        var changed = !string.Equals(_captureDeviceId, selectedId, StringComparison.Ordinal) ||
+            !string.Equals(_captureDeviceName, selectedName, StringComparison.Ordinal);
+        _captureDeviceId = selectedId;
+        _captureDeviceName = selectedName;
+        RefreshInputDeviceRows();
+        if (changed)
+        {
+            SettingsChanged?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// The device id capture should use now. Windows wave-in ids are positional, so a saved name
+    /// re-finds the same microphone after the device order changes; a device that is gone falls
+    /// back to the system default rather than failing the next recording.
+    /// </summary>
+    public string? ResolveCaptureDeviceId()
+    {
+        if (_captureDeviceId is null || _inputDevices.Count == 0)
+        {
+            return _captureDeviceId;
+        }
+
+        if (_captureDeviceName is not null)
+        {
+            // The saved name decides, because a positional id can now point at a different
+            // microphone; when the named device is absent, the system default is the honest
+            // choice rather than recording from whatever took its place.
+            return _inputDevices.FirstOrDefault(device => MatchesSavedName(device))?.Id;
+        }
+
+        return _inputDevices.Any(device => string.Equals(device.Id, _captureDeviceId, StringComparison.Ordinal))
+            ? _captureDeviceId
+            : null;
+    }
+
+    /// <summary>The capture options for the next recording session.</summary>
+    public AudioCaptureOptions CaptureOptions() => new(ResolveCaptureDeviceId());
+
+    /// <summary>
+    /// Compares a device against the saved name. A name saved before Bantz read full names from
+    /// Core Audio was cut short by the wave-in API, so a saved name that begins the device's name
+    /// still counts as the same microphone.
+    /// </summary>
+    private bool MatchesSavedName(AudioCaptureDevice device) =>
+        !string.Equals(device.Id, AudioCaptureDevices.DefaultId, StringComparison.Ordinal) &&
+        _captureDeviceName is not null &&
+        (string.Equals(device.Name, _captureDeviceName, StringComparison.Ordinal) ||
+            device.Name.StartsWith(_captureDeviceName, StringComparison.Ordinal));
+
+    private bool SelectedInputDeviceAvailable => ResolveCaptureDeviceId() is not null;
+
+    private string SelectedInputDeviceId => ResolveCaptureDeviceId() ?? AudioCaptureDevices.DefaultId;
+
     public IReadOnlyList<InputBinding> GetBindingsSnapshot() =>
         _inputBindings.Select(binding => binding.Copy()).ToArray();
 
@@ -810,15 +939,39 @@ public sealed partial class BantzModel
         Runtime = SelectedRuntime,
         AutoWrite = AutoWrite,
         AutoEnter = AutoEnter,
+        ClipboardPaste = ClipboardPaste,
         AlwaysOnTop = AlwaysOnTop,
         ButtonDelayEnabled = ButtonDelayEnabled,
         ButtonDelaySeconds = ButtonDelaySeconds,
         ShortcutDelayEnabled = ShortcutDelayEnabled,
         ShortcutDelaySeconds = ShortcutDelaySeconds,
         ShortcutsEnabled = ShortcutsEnabled,
+        CaptureDeviceId = _captureDeviceId,
+        CaptureDeviceName = _captureDeviceName,
         ShortcutToggleBinding = _shortcutToggleBinding?.Copy(),
         Bindings = _inputBindings.Select(binding => binding.Copy()).ToList(),
     };
+
+    private void RefreshInputDeviceRows()
+    {
+        var selectedId = SelectedInputDeviceId;
+        InputDeviceRows = _inputDevices
+            .Select(device =>
+            {
+                var selected = string.Equals(device.Id, selectedId, StringComparison.Ordinal);
+                return new InputDeviceRow
+                {
+                    Id = device.Id,
+                    Badge = string.Equals(device.Id, AudioCaptureDevices.DefaultId, StringComparison.Ordinal)
+                        ? "DEFAULT"
+                        : "MIC",
+                    Name = device.Name,
+                    RowClass = selected ? "selected" : "",
+                    ActionLabel = selected ? "In use" : "Use",
+                };
+            })
+            .ToList();
+    }
 
     private void RefreshBindingRows() => BindingRows = _inputBindings
         .Select(binding => new BindingRow
@@ -853,4 +1006,14 @@ public sealed partial class BindingRow
     public string Id { get; set; } = "";
     public string Device { get; set; } = "";
     public string Name { get; set; } = "";
+}
+
+[CupriBindable]
+public sealed partial class InputDeviceRow
+{
+    public string Id { get; set; } = "";
+    public string Badge { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string RowClass { get; set; } = "";
+    public string ActionLabel { get; set; } = "";
 }

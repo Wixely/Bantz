@@ -9,6 +9,17 @@
     <SelfContained>true</SelfContained>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+    <PublishTrimmed>true</PublishTrimmed>
+    <!-- Partial trims only assemblies that declare themselves trimmable, which is the framework.
+         AngleSharp, Silk.NET, and the CupriFace shell all resolve types by reflection, so they are
+         copied whole rather than trimmed. -->
+    <TrimMode>partial</TrimMode>
+    <!-- Those dependencies raise trim analysis warnings that this repository cannot fix, and
+         TreatWarningsAsErrors would otherwise fail the publish. -->
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <!-- Trimming turns built-in COM interop off by default, which breaks Core Audio device naming
+         and the shell's UI Automation bridge. Both are COM, and neither assembly is trimmed. -->
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <PublishAot Condition="'$(Aot)' == 'true'">true</PublishAot>
     <InvariantGlobalization Condition="'$(Aot)' == 'true'">true</InvariantGlobalization>

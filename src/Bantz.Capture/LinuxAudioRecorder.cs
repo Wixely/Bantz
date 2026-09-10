@@ -9,7 +9,7 @@ namespace Bantz.Capture;
 public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
 {
     private readonly AudioSignalAnalyzer _signalAnalyzer;
-    private readonly AudioCaptureOptions _options;
+    private readonly Func<AudioCaptureOptions> _optionsProvider;
     private readonly object _sync = new();
     private Process? _process;
     private MemoryStream? _pcm;
@@ -20,9 +20,19 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
     public LinuxAudioRecorder(
         AudioSignalAnalyzer? signalAnalyzer = null,
         AudioCaptureOptions? options = null)
+        : this(signalAnalyzer, () => options ?? AudioCaptureOptions.Default)
     {
+    }
+
+    /// <summary>
+    /// Creates a recorder that reads its options as each session starts, so a device chosen
+    /// while the application runs applies to the next recording.
+    /// </summary>
+    public LinuxAudioRecorder(AudioSignalAnalyzer? signalAnalyzer, Func<AudioCaptureOptions> optionsProvider)
+    {
+        ArgumentNullException.ThrowIfNull(optionsProvider);
         _signalAnalyzer = signalAnalyzer ?? new AudioSignalAnalyzer();
-        _options = options ?? AudioCaptureOptions.Default;
+        _optionsProvider = optionsProvider;
     }
 
     public event Action<AudioFrame>? FrameCaptured;
@@ -56,11 +66,12 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
             start.ArgumentList.Add(PcmAudio.SpeechChannels.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("-t");
             start.ArgumentList.Add("raw");
-            if (!string.IsNullOrWhiteSpace(_options.DeviceId) &&
-                !string.Equals(_options.DeviceId, "default", StringComparison.OrdinalIgnoreCase))
+            var deviceId = _optionsProvider().DeviceId;
+            if (!string.IsNullOrWhiteSpace(deviceId) &&
+                !string.Equals(deviceId, AudioCaptureDevices.DefaultId, StringComparison.OrdinalIgnoreCase))
             {
                 start.ArgumentList.Add("-D");
-                start.ArgumentList.Add(_options.DeviceId);
+                start.ArgumentList.Add(deviceId);
             }
 
             try

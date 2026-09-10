@@ -70,6 +70,19 @@ public sealed class SettingsStore
             settings.Runtime = null;
         }
 
+        if (string.IsNullOrWhiteSpace(settings.CaptureDeviceId))
+        {
+            settings.CaptureDeviceId = null;
+            settings.CaptureDeviceName = null;
+        }
+        else
+        {
+            settings.CaptureDeviceId = settings.CaptureDeviceId.Trim();
+            settings.CaptureDeviceName = string.IsNullOrWhiteSpace(settings.CaptureDeviceName)
+                ? null
+                : settings.CaptureDeviceName.Trim();
+        }
+
         settings.ButtonDelaySeconds = Math.Clamp(settings.ButtonDelaySeconds, 0, 10);
         settings.ShortcutDelaySeconds = Math.Clamp(settings.ShortcutDelaySeconds, 0, 10);
         settings.Bindings ??= [];
