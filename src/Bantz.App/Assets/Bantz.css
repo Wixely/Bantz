@@ -143,11 +143,15 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .keybinds-panel { height:418px; }
 .input-panel { height:418px; }
 .models-panel { height:418px; }
-.model-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:6px; }
-.model-row strong { flex:none; color:#e5ebf4; font-size:12px; }
-.model-summary { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#8f9bad; font-size:10px; }
+.model-list { flex:1; min-height:0; padding-right:12px; display:flex; flex-direction:column; gap:4px; }
+/* Nine rows are taller than the list, so without this they shrink to fit and the buttons, which
+   keep their own height, spill over the rows above and below. */
+.binding-row.model-row { flex:none; height:40px; padding:5px 8px 5px 10px; }
+.model-row strong { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#e5ebf4; font-size:12px; }
+.model-summary { width:104px; flex:none; overflow:hidden; white-space:nowrap; text-align:right; color:#8f9bad; font-size:10px; }
 .model-badge { min-width:58px; flex:none; font-size:8px; }
-.model-row .cupri-button { flex:none; padding:7px 10px; border-radius:8px; font-size:11px; }
+.model-installed { flex:none; padding:3px 6px; border-radius:7px; background:#1f3a2f; color:#68e0b1; font-size:8px; font-weight:700; letter-spacing:.5px; }
+.model-row .cupri-button { flex:none; width:58px; padding:5px 6px; border-radius:8px; font-size:11px; }
 .model-row.selected { background:#20313b; box-shadow:inset 0 0 0 1px #68e0b1; }
 .model-row.selected .device-badge { background:#1f4a41; }
 .language-heading { height:34px; }

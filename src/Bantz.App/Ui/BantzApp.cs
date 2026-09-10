@@ -849,14 +849,13 @@ public sealed partial class BantzModel
                 return $"Downloading {WhisperModelCatalog.Resolve(downloading).DisplayName}…";
             }
 
-            if (!_installedModels.ContainsKey(SelectedModel.Id))
-            {
-                return $"{SelectedModel.DisplayName} downloads on the first transcription.";
-            }
-
-            return SelectedModel.IsMultilingual
-                ? $"{SelectedModel.DisplayName} transcribes {LanguageName}."
-                : $"{SelectedModel.DisplayName} transcribes English only.";
+            var description = $"{SelectedModel.DisplayName} · {SelectedModel.Summary}";
+            var transcribes = SelectedModel.IsMultilingual
+                ? $"Transcribes {LanguageName}."
+                : "Transcribes English only.";
+            return _installedModels.ContainsKey(SelectedModel.Id)
+                ? $"{description}. {transcribes}"
+                : $"{description}. Downloads on the first transcription. {transcribes}";
         }
     }
 
@@ -1169,10 +1168,11 @@ public sealed partial class BantzModel
                     Summary = downloading
                         ? "Downloading…"
                         : installed
-                            ? $"Installed, {size / 1_048_576d:N0} MiB · {model.Summary}"
-                            : $"{model.DownloadBytes / 1_048_576d:N0} MiB · {model.Summary}",
+                            ? $"{size / 1_048_576d:N0} MiB"
+                            : $"{model.DownloadBytes / 1_048_576d:N0} MiB",
                     RowClass = selected ? "selected" : "",
                     ActionLabel = selected ? "In use" : "Use",
+                    InstalledDisplay = installed && !downloading ? "flex" : "none",
                     RemoveDisplay = installed && !selected && !downloading ? "block" : "none",
                 };
             })
@@ -1245,6 +1245,7 @@ public sealed partial class SpeechModelRow
     public string Summary { get; set; } = "";
     public string RowClass { get; set; } = "";
     public string ActionLabel { get; set; } = "";
+    public string InstalledDisplay { get; set; } = "none";
     public string RemoveDisplay { get; set; } = "none";
 }
 

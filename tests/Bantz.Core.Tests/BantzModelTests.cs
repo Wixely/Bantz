@@ -103,9 +103,11 @@ public sealed class BantzModelTests
 
         Assert.Equal("selected", installed.RowClass);
         Assert.Equal("In use", installed.ActionLabel);
-        Assert.Contains("Installed", installed.Summary, StringComparison.Ordinal);
+        Assert.Equal("141 MiB", installed.Summary);
+        Assert.Equal("flex", installed.InstalledDisplay);
         Assert.Equal("none", installed.RemoveDisplay);
-        Assert.Contains("466 MiB", absent.Summary, StringComparison.Ordinal);
+        Assert.Equal("466 MiB", absent.Summary);
+        Assert.Equal("none", absent.InstalledDisplay);
         Assert.Equal("none", absent.RemoveDisplay);
     }
 
@@ -134,6 +136,23 @@ public sealed class BantzModelTests
         Assert.Equal("Downloading…", row.Summary);
         Assert.Equal("none", row.RemoveDisplay);
         Assert.Contains("Downloading Small", model.ModelStatus, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TheStatusLineDescribesTheModelAndItsLanguage()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+        model.SetInstalledModels(new Dictionary<string, long> { ["base.en"] = 147_964_211 });
+
+        Assert.Contains("Base (English)", model.ModelStatus, StringComparison.Ordinal);
+        Assert.Contains("Balanced", model.ModelStatus, StringComparison.Ordinal);
+        Assert.Contains("Transcribes English only.", model.ModelStatus, StringComparison.Ordinal);
+
+        model.SelectModel("small");
+        model.SpeechLanguage = "de";
+
+        Assert.Contains("Transcribes German.", model.ModelStatus, StringComparison.Ordinal);
+        Assert.Contains("Downloads on the first transcription.", model.ModelStatus, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -193,6 +193,7 @@
         <div class="binding-row model-row {{RowClass}}" role="listitem" data-repeat="SpeechModelRows">
           <span class="device-badge model-badge">{{Badge}}</span>
           <strong>{{Name}}</strong>
+          <span class="model-installed" style="display:{{InstalledDisplay}}">ON DISK</span>
           <span class="model-summary">{{Summary}}</span>
           <cupri-button variant="ghost" data-select-model="{{Id}}">{{ActionLabel}}</cupri-button>
           <cupri-button variant="ghost" style="display:{{RemoveDisplay}}" data-remove-model="{{Id}}">Delete</cupri-button>
