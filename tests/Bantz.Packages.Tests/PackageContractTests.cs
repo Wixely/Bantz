@@ -25,6 +25,54 @@ public sealed class PackageContractTests
         Assert.True(engine.IsReady);
     }
 
+    /// <summary>
+    /// Every engine member must be abstract. When these had default implementations, a downstream
+    /// engine whose signature did not quite match — Task where the interface declares ValueTask —
+    /// compiled clean, satisfied nothing, and was silently ignored by every caller holding the
+    /// interface. This is the guard that keeps the compiler doing that work.
+    /// </summary>
+    [Fact]
+    public void EveryEngineMemberIsAbstractSoANearMissCannotCompile()
+    {
+        var members = typeof(ITranscriptionEngine).GetMethods();
+
+        Assert.NotEmpty(members);
+        Assert.All(members, member => Assert.True(
+            member.IsAbstract,
+            $"{member.Name} has a default implementation, which silently absorbs a mismatched signature."));
+    }
+
+    [Fact]
+    public async Task TheEngineBaseCarriesTheConveniencesThroughTheInterface()
+    {
+        ITranscriptionEngine engine = new FakeEngine();
+
+        await engine.InitializeAsync();
+
+        Assert.True(engine.IsReady);
+        var diagnostics = engine.GetDiagnostics();
+        Assert.Equal(nameof(FakeEngine), diagnostics.Engine);
+        Assert.True(diagnostics.IsReady);
+        Assert.Equal("Not run yet", diagnostics.LastRun);
+    }
+
+    /// <summary>
+    /// An engine that reports its own progress has to be reached through the interface, which is
+    /// what the default implementations used to prevent.
+    /// </summary>
+    [Fact]
+    public async Task AnOverriddenInitializeIsReachedThroughTheInterface()
+    {
+        ITranscriptionEngine engine = new ReportingEngine();
+        // Not Progress<T>: it posts to the thread pool, which would make this a race rather than
+        // an assertion. This records on the calling thread.
+        var progress = new RecordingProgress();
+
+        await engine.InitializeAsync(progress);
+
+        Assert.Equal([TranscriptionInitializationStage.Ready], progress.Stages);
+    }
+
     [Fact]
     public void PcmAudioCreatesASeekableWaveWithCorrectDuration()
     {
@@ -212,9 +260,30 @@ plughw:CARD=PCH,DEV=0
         }
     }
 
-    private sealed class FakeEngine : ITranscriptionEngine
+    private sealed class RecordingProgress : IProgress<TranscriptionInitializationProgress>
     {
-        public Task<TranscriptionResult> TranscribeAsync(PcmAudio audio, CancellationToken cancellationToken = default) =>
+        public List<TranscriptionInitializationStage> Stages { get; } = [];
+
+        public void Report(TranscriptionInitializationProgress value) => Stages.Add(value.Stage);
+    }
+
+    private sealed class ReportingEngine : TranscriptionEngineBase
+    {
+        public override ValueTask InitializeAsync(
+            IProgress<TranscriptionInitializationProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            progress?.Report(new TranscriptionInitializationProgress(TranscriptionInitializationStage.Ready));
+            return ValueTask.CompletedTask;
+        }
+
+        public override Task<TranscriptionResult> TranscribeAsync(PcmAudio audio, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new TranscriptionResult("reporting engine"));
+    }
+
+    private sealed class FakeEngine : TranscriptionEngineBase
+    {
+        public override Task<TranscriptionResult> TranscribeAsync(PcmAudio audio, CancellationToken cancellationToken = default) =>
             Task.FromResult(new TranscriptionResult("consumer engine"));
     }
 }

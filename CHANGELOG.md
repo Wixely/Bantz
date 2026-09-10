@@ -3,6 +3,21 @@
 All notable changes to Bantz are recorded here. Versions follow `MAJOR.MINOR.PATCH`; while Bantz
 is pre-1.0 a minor bump may change behaviour you rely on.
 
+## Unreleased
+
+### Changed
+
+- **Breaking, for anyone implementing `ITranscriptionEngine`.** `IsReady`, `InitializeAsync` and
+  `GetDiagnostics` are abstract; they used to have default implementations. A default interface
+  method absorbs a near miss: an engine declaring `Task InitializeAsync(...)` where the interface
+  declares `ValueTask` compiled without a warning, satisfied the interface with the default, and was
+  then ignored by every caller holding an `ITranscriptionEngine` — surfacing much later as progress
+  reporting that does nothing. Requiring all four turns that silence into a compile error. Derive
+  from the new `TranscriptionEngineBase` to keep the conveniences; existing engines that implement
+  every member, `WhisperTranscriptionEngine` among them, are unaffected. ([#6])
+
+[#6]: https://github.com/Wixely/Bantz/issues/6
+
 ## 0.4.0
 
 ### Added

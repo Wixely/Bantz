@@ -6,9 +6,9 @@ ITranscriptionEngine engine = new ExampleRemoteEngine();
 var result = await engine.TranscribeAsync(new PcmAudio(new byte[320]));
 Console.WriteLine(result.Text);
 
-file sealed class ExampleRemoteEngine : ITranscriptionEngine
+file sealed class ExampleRemoteEngine : TranscriptionEngineBase
 {
-    public Task<TranscriptionResult> TranscribeAsync(
+    public override Task<TranscriptionResult> TranscribeAsync(
         PcmAudio audio,
         CancellationToken cancellationToken = default) =>
         Task.FromResult(new TranscriptionResult($"Received {audio.Duration.TotalMilliseconds:N0} ms of PCM"));
