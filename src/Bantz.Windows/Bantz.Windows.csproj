@@ -28,7 +28,7 @@
     <ApplicationIcon>..\Bantz.App\Assets\Bantz.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="CupriFace.Shell" Version="0.2.11" />
+    <PackageReference Include="CupriFace.Shell" Version="0.20.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Bantz.Core/Bantz.Core.csproj" />
