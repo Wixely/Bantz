@@ -400,11 +400,11 @@ public sealed class DictationWorkflowTests
         }
     }
 
-    private sealed class EngineFake(string result) : ITranscriptionEngine
+    private sealed class EngineFake(string result) : TranscriptionEngineBase
     {
         public int CallCount { get; private set; }
 
-        public Task<TranscriptionResult> TranscribeAsync(PcmAudio audio, CancellationToken cancellationToken = default)
+        public override Task<TranscriptionResult> TranscribeAsync(PcmAudio audio, CancellationToken cancellationToken = default)
         {
             CallCount++;
             return Task.FromResult(new TranscriptionResult(result));
