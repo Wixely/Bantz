@@ -12,7 +12,7 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
     private readonly Func<AudioCaptureOptions> _optionsProvider;
     private readonly object _sync = new();
     private Process? _process;
-    private MemoryStream? _pcm;
+    private CaptureBuffer? _pcm;
     private Task? _captureTask;
     private long _sequence;
     private bool _disposed;
@@ -66,7 +66,9 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
             start.ArgumentList.Add(PcmAudio.SpeechChannels.ToString(System.Globalization.CultureInfo.InvariantCulture));
             start.ArgumentList.Add("-t");
             start.ArgumentList.Add("raw");
-            var deviceId = _optionsProvider().DeviceId;
+            // Read once, so the device and the retention decision come from the same snapshot.
+            var options = _optionsProvider();
+            var deviceId = options.DeviceId;
             if (!string.IsNullOrWhiteSpace(deviceId) &&
                 !string.Equals(deviceId, AudioCaptureDevices.DefaultId, StringComparison.OrdinalIgnoreCase))
             {
@@ -77,10 +79,10 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
             try
             {
                 _process = Process.Start(start) ?? throw new InvalidOperationException("arecord did not start.");
-                _pcm = new MemoryStream();
+                _pcm = new CaptureBuffer(options.RetainBuffer);
                 _sequence = 0;
                 _signalAnalyzer.Reset();
-                _captureTask = CaptureAudioAsync(_process.StandardOutput.BaseStream, _pcm);
+                _captureTask = CaptureAudioAsync(_process.StandardOutput.BaseStream, _pcm.Destination);
             }
             catch (Win32Exception exception)
             {
@@ -115,8 +117,11 @@ public sealed partial class LinuxAudioRecorder : IAudioRecorder, IDisposable
             stopTimeout.CancelAfter(TimeSpan.FromSeconds(5));
             await process.WaitForExitAsync(stopTimeout.Token).ConfigureAwait(false);
             await captureTask.WaitAsync(stopTimeout.Token).ConfigureAwait(false);
+            var retained = _pcm?.Retains ?? false;
             var bytes = _pcm?.ToArray() ?? [];
-            if (bytes.Length == 0)
+            // A streaming session keeps nothing on purpose, so an empty buffer says nothing about
+            // whether the microphone worked.
+            if (retained && bytes.Length == 0)
             {
                 var error = await process.StandardError.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
                 throw new InvalidOperationException($"arecord did not produce audio. {error}".Trim());

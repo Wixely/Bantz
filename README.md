@@ -122,6 +122,9 @@ This creates `Bantz.Speech.Abstractions`, `Bantz.Speech.Whisper`, `Bantz.Capture
 `samples/MinimalDictation` from the local packages rather than project references. Speech
 contracts use signed 16-bit, 16 kHz, mono PCM. Minimum-duration and silence decisions remain
 consumer workflow policy; generic tray creation/menu support is not part of the first input API.
+Capture retains the recording so that stopping returns it; `AudioCaptureOptions.Streaming` turns
+that off for a microphone that stays open, where frames are consumed as they arrive and the
+recording would only accumulate.
 `PcmAudio.CreateWaveStream` writes a WAV; `WaveHeader.TryParse` reads one back, for audio that
 arrives from elsewhere and states its sample rate only in its header.
 

@@ -15,7 +15,7 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
     private readonly Func<AudioCaptureOptions> _optionsProvider;
     private readonly object _sync = new();
     private WaveInEvent? _input;
-    private MemoryStream? _pcm;
+    private CaptureBuffer? _pcm;
     private TaskCompletionSource? _stopped;
     private long _sequence;
     private bool _disposed;
@@ -52,13 +52,14 @@ public sealed class WindowsAudioRecorder : IAudioRecorder, IDisposable
                 throw new InvalidOperationException("The microphone is already recording.");
             }
 
-            _pcm = new MemoryStream();
+            var options = _optionsProvider();
+            _pcm = new CaptureBuffer(options.RetainBuffer);
             _sequence = 0;
             _signalAnalyzer.Reset();
             _stopped = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             _input = new WaveInEvent
             {
-                DeviceNumber = ResolveDeviceNumber(_optionsProvider().DeviceId),
+                DeviceNumber = ResolveDeviceNumber(options.DeviceId),
                 WaveFormat = new WaveFormat(PcmAudio.SpeechSampleRate, 16, PcmAudio.SpeechChannels),
                 BufferMilliseconds = 50,
             };
