@@ -114,6 +114,8 @@ jobs:
       packages: write
       actions: write
     steps:
+      # This job builds nothing, but the release notes are read from the tagged CHANGELOG.md.
+      - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 10.0.300
