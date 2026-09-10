@@ -11,7 +11,7 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   Turbo are offered, each multilingual and most with a faster English-only build. Choosing a model
   that is not downloaded fetches it; one that is not in use can be deleted.
 - Transcription in languages other than English, using a multilingual model. Twenty languages are
-  listed, along with letting Whisper detect the language itself. The language can be chosen at any
+  offered in a dropdown, along with letting Whisper detect the language itself. The language can be chosen at any
   time and is remembered; an English-only model transcribes English while it is selected and says
   so, and the chosen language applies again as soon as a multilingual model is.
 - The model and language are also chosen on the first-run setup card, which starts on Base

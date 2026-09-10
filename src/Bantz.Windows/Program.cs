@@ -327,6 +327,32 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         ReportScroll(document, "  after release");
     }
 
+    // Prints the painted rect of every node carrying one of the given classes, so a layout can be
+    // measured rather than guessed at from a screenshot.
+    var measure = ArgumentValue(args, "--measure");
+    if (!string.IsNullOrWhiteSpace(measure))
+    {
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        var wanted = measure.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        void Walk(CupriFace.Dom.RenderNode node, float parentX, float parentY)
+        {
+            var x = parentX + node.X;
+            var y = parentY + node.Y;
+            var classes = node.Element?.ClassList;
+            if (classes is not null && wanted.Any(want => classes.Contains(want)))
+            {
+                Console.WriteLine($"{string.Join('.', classes),-34} x={x,7:N1} y={y,7:N1} w={node.Width,7:N1} h={node.Height,7:N1}");
+            }
+
+            foreach (var child in node.Children)
+            {
+                Walk(child, x, y);
+            }
+        }
+
+        Walk(document.Root, 0, 0);
+    }
+
     var scrollProbe = ArgumentValue(args, "--probe-scroll");
     if (!string.IsNullOrWhiteSpace(scrollProbe))
     {

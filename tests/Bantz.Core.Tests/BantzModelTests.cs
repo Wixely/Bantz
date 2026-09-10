@@ -101,22 +101,27 @@ public sealed class BantzModelTests
         Assert.Equal("English", model.LanguageName);
     }
 
+    /// <summary>
+    /// The language dropdown drives the model through its bindings and nothing else: the runtime
+    /// writes the picked option to <see cref="BantzModel.SpeechLanguage"/> and toggles
+    /// <see cref="BantzModel.LanguageOpen"/>. Both have to behave for the picker to work at all.
+    /// </summary>
     [Fact]
-    public void EveryLanguageIsOfferedAsARowWithOneInUse()
+    public void ThePickedLanguageRoundTripsAndAsksForTheSettingsToBeSaved()
     {
         var model = new BantzModel(AppSettings.Defaults());
+        var saves = 0;
+        model.SettingsChanged += () => saves++;
 
-        var rows = model.SpeechLanguageRows;
+        Assert.False(model.LanguageOpen);
+        model.LanguageOpen = true;
+        Assert.True(model.LanguageOpen);
 
-        Assert.Equal(SpeechLanguages.All.Count, rows.Count);
-        var inUse = Assert.Single(rows, row => row.ActionLabel == "In use");
-        Assert.Equal("en", inUse.Code);
-        Assert.Equal("selected", inUse.RowClass);
+        model.SpeechLanguage = "ja";
 
-        model.SelectLanguage("ja");
-
-        inUse = Assert.Single(model.SpeechLanguageRows, row => row.ActionLabel == "In use");
-        Assert.Equal("ja", inUse.Code);
+        Assert.Equal("ja", model.SpeechLanguage);
+        Assert.Equal("Japanese", model.LanguageName);
+        Assert.Equal(1, saves);
     }
 
     [Fact]

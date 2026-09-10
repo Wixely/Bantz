@@ -65,12 +65,28 @@
             </div>
           </div>
           <span class="setup-label">Language</span>
-          <div class="setup-list binding-scroll" data-scroll-grip="setup" role="list">
-            <div class="binding-row setup-row {{RowClass}}" role="listitem" data-repeat="SpeechLanguageRows">
-              <strong>{{Name}}</strong>
-              <cupri-button variant="ghost" data-select-language="{{Code}}">{{ActionLabel}}</cupri-button>
-            </div>
-          </div>
+          <cupri-select class="setup-select" value="{{SpeechLanguage}}" open="{{LanguageOpen}}" aria-label="Speech language">
+            <cupri-option value="auto">Detect automatically</cupri-option>
+            <cupri-option value="en">English</cupri-option>
+            <cupri-option value="ar">Arabic</cupri-option>
+            <cupri-option value="zh">Chinese</cupri-option>
+            <cupri-option value="cs">Czech</cupri-option>
+            <cupri-option value="nl">Dutch</cupri-option>
+            <cupri-option value="fr">French</cupri-option>
+            <cupri-option value="de">German</cupri-option>
+            <cupri-option value="hi">Hindi</cupri-option>
+            <cupri-option value="it">Italian</cupri-option>
+            <cupri-option value="ja">Japanese</cupri-option>
+            <cupri-option value="ko">Korean</cupri-option>
+            <cupri-option value="pl">Polish</cupri-option>
+            <cupri-option value="pt">Portuguese</cupri-option>
+            <cupri-option value="ru">Russian</cupri-option>
+            <cupri-option value="es">Spanish</cupri-option>
+            <cupri-option value="sv">Swedish</cupri-option>
+            <cupri-option value="tr">Turkish</cupri-option>
+            <cupri-option value="uk">Ukrainian</cupri-option>
+            <cupri-option value="vi">Vietnamese</cupri-option>
+          </cupri-select>
         </div>
         <div class="setup-progress">
           <span class="setup-status">{{ModelDownloadStatus}}</span>
@@ -224,11 +240,30 @@
         <cupri-icon name="info" size="13"></cupri-icon>
         <span>{{SelectedModelName}} is English-only. Choose a multilingual model to change language.</span>
       </div>
-      <div class="language-list binding-scroll" data-scroll-grip="languages" role="list">
-        <div class="binding-row language-row {{RowClass}}" role="listitem" data-repeat="SpeechLanguageRows">
-          <strong>{{Name}}</strong>
-          <cupri-button variant="ghost" data-select-language="{{Code}}">{{ActionLabel}}</cupri-button>
-        </div>
+      <div class="language-picker">
+        <cupri-select value="{{SpeechLanguage}}" open="{{LanguageOpen}}" aria-label="Speech language">
+          <cupri-option value="auto">Detect automatically</cupri-option>
+            <cupri-option value="en">English</cupri-option>
+            <cupri-option value="ar">Arabic</cupri-option>
+            <cupri-option value="zh">Chinese</cupri-option>
+            <cupri-option value="cs">Czech</cupri-option>
+            <cupri-option value="nl">Dutch</cupri-option>
+            <cupri-option value="fr">French</cupri-option>
+            <cupri-option value="de">German</cupri-option>
+            <cupri-option value="hi">Hindi</cupri-option>
+            <cupri-option value="it">Italian</cupri-option>
+            <cupri-option value="ja">Japanese</cupri-option>
+            <cupri-option value="ko">Korean</cupri-option>
+            <cupri-option value="pl">Polish</cupri-option>
+            <cupri-option value="pt">Portuguese</cupri-option>
+            <cupri-option value="ru">Russian</cupri-option>
+            <cupri-option value="es">Spanish</cupri-option>
+            <cupri-option value="sv">Swedish</cupri-option>
+            <cupri-option value="tr">Turkish</cupri-option>
+            <cupri-option value="uk">Ukrainian</cupri-option>
+            <cupri-option value="vi">Vietnamese</cupri-option>
+        </cupri-select>
+      </div>
       </div>
       <div class="capture-message" aria-live="polite">{{ModelStatus}}</div>
     </section>
