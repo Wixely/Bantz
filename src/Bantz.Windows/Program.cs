@@ -236,10 +236,17 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
             Console.WriteLine($"click ({x:N0},{y:N0}) hit: {DescribeNode(hit)}");
             // A real pointer moves, presses and releases; a synthetic click alone does not reach
             // components that track press state.
+            // The desktop host uses pointer id 0 and only falls back to a click when the pointer
+            // press is not handled; mirror that exactly.
             document.DispatchPointerMove(x, y);
-            var down = document.DispatchPointer(1, CupriFace.Interaction.PointerPhase.Down, x, y);
-            var up = document.DispatchPointer(1, CupriFace.Interaction.PointerPhase.Up, x, y);
-            Console.WriteLine($"  down={down} up={up} click={document.DispatchClick(x, y, 1)}");
+            var down = document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Down, x, y);
+            if (!down)
+            {
+                document.DispatchClick(x, y, 1);
+            }
+
+            var up = document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Up, x, y);
+            Console.WriteLine($"  down={down} up={up}");
         }
     }
 
@@ -253,6 +260,73 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         var delta = parts.Length > 1 && float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var parsed) ? parsed : 120f;
         Console.WriteLine($"ScrollCaptured('{path}', {delta}): {document.ScrollCaptured(path, null, delta, 0)}");
         Console.WriteLine($"Overscroll('{path}', {delta}): {document.Overscroll(path, delta)}");
+    }
+
+    var scrollProbe = ArgumentValue(args, "--probe-scroll");
+    if (!string.IsNullOrWhiteSpace(scrollProbe))
+    {
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        var parts = scrollProbe.Split(',').Select(part => float.Parse(part, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        var hit = document.HitTest(parts[0], parts[1]);
+        for (var node = hit; node is not null; node = NodeParent(node))
+        {
+            var type = node.GetType();
+            bool Scrollable() => (bool)(type.GetProperty("IsScrollable")?.GetValue(node) ?? false);
+            if (!Scrollable())
+            {
+                continue;
+            }
+
+            float Read(string name) => Convert.ToSingle(type.GetProperty(name)?.GetValue(node) ?? 0f, System.Globalization.CultureInfo.InvariantCulture);
+            Console.WriteLine($"scrollable node: Width={Read("Width"):N1} Height={Read("Height"):N1} MaxScrollY={Read("MaxScrollY"):N1} ContentBoxHeight={Read("ContentBoxHeight"):N1} BorderRightW={Read("BorderRightW"):N1}");
+            foreach (var name in new[] { "X", "Y", "AbsX", "AbsY", "PaintX", "PaintY", "ContentTopInset" })
+            {
+                var value = type.GetProperty(name)?.GetValue(node);
+                if (value is not null)
+                {
+                    Console.WriteLine($"  {name}={value}");
+                }
+            }
+
+            break;
+        }
+    }
+
+    var drag = ArgumentValue(args, "--drag");
+    if (!string.IsNullOrWhiteSpace(drag))
+    {
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        var parts = drag.Split(',').Select(part => float.Parse(part, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+        var (x1, y1, x2, y2) = (parts[0], parts[1], parts[2], parts[3]);
+        Console.WriteLine($"drag ({x1:N0},{y1:N0}) -> ({x2:N0},{y2:N0})");
+        document.DispatchPointerMove(x1, y1);
+        // The host tries the pointer press first and falls back to a click; the mouse path grabs
+        // drag surfaces inside that click, so both have to run.
+        var pressed = document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Down, x1, y1);
+        if (!pressed)
+        {
+            pressed = document.DispatchClick(x1, y1, 1);
+        }
+
+        Console.WriteLine($"  press: {pressed}");
+        for (var step = 1; step <= 8; step++)
+        {
+            var t = step / 8f;
+            var mx = x1 + (x2 - x1) * t;
+            var my = y1 + (y2 - y1) * t;
+            if (!document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Move, mx, my))
+            {
+                document.DispatchPointerMove(mx, my);
+            }
+        }
+
+        if (!document.DispatchPointer(0, CupriFace.Interaction.PointerPhase.Up, x2, y2))
+        {
+            document.DispatchPointerUp(x2, y2);
+        }
+
+        Console.WriteLine("  released");
     }
 
     var wheels = WheelPoints(args);
@@ -337,6 +411,9 @@ input.HotkeyReleased += () =>
     }
 };
 DesktopHost.Run(app);
+
+static CupriFace.Dom.RenderNode? NodeParent(CupriFace.Dom.RenderNode node) =>
+    node.GetType().GetProperty("Parent")?.GetValue(node) as CupriFace.Dom.RenderNode;
 
 static List<(float X, float Y, float Delta)> WheelPoints(string[] values)
 {
