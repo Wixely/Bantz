@@ -129,7 +129,7 @@ public sealed class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void AnEnglishOnlyModelIsStoredWithEnglish()
+    public void AnEnglishOnlyModelStillRemembersTheChosenLanguage()
     {
         var store = new SettingsStore(SettingsPath);
         var settings = AppSettings.Defaults();
@@ -139,8 +139,10 @@ public sealed class SettingsStoreTests : IDisposable
         store.Save(settings);
         var reloaded = store.Load();
 
+        // The model ignores the language while it is selected; the choice survives for the next
+        // multilingual model rather than being rewritten on the way to disk.
         Assert.Equal("medium.en", reloaded.ModelId);
-        Assert.Equal("en", reloaded.Language);
+        Assert.Equal("ja", reloaded.Language);
     }
 
     [Fact]

@@ -45,8 +45,8 @@ public sealed class BantzModelTests
 
         Assert.Equal("base.en", model.SelectedModel.Id);
         Assert.Equal("en", model.SpeechLanguage);
+        Assert.Equal("en", model.EffectiveLanguage);
         Assert.Equal("flex", model.LanguageLockedDisplay);
-        Assert.Equal("none", model.LanguageRowsDisplay);
     }
 
     [Fact]
@@ -61,25 +61,44 @@ public sealed class BantzModelTests
 
         Assert.Equal("small", model.ToSettings().ModelId);
         Assert.Equal("fr", model.ToSettings().Language);
+        Assert.Equal("fr", model.EffectiveLanguage);
         Assert.Equal("French", model.LanguageName);
-        Assert.Equal("block", model.LanguageRowsDisplay);
         Assert.Equal("none", model.LanguageLockedDisplay);
         Assert.Equal(2, saves);
     }
 
     [Fact]
-    public void AnEnglishOnlyModelKeepsEnglishWhateverTheLanguageSays()
+    public void AnEnglishOnlyModelTranscribesEnglishButKeepsTheChosenLanguage()
     {
         var settings = AppSettings.Defaults();
         settings.ModelId = "small";
         settings.Language = "de";
         var model = new BantzModel(settings);
-        Assert.Equal("de", model.SpeechLanguage);
+        Assert.Equal("de", model.EffectiveLanguage);
 
         model.SelectModel("base.en");
 
-        Assert.Equal("en", model.SpeechLanguage);
-        Assert.Equal("en", model.ToSettings().Language);
+        // The model transcribes English, but the choice is remembered rather than overwritten.
+        Assert.Equal("en", model.EffectiveLanguage);
+        Assert.Equal("de", model.SpeechLanguage);
+        Assert.Equal("de", model.ToSettings().Language);
+        Assert.Contains("German applies once a multilingual model is chosen", model.ModelStatus, StringComparison.Ordinal);
+
+        model.SelectModel("small");
+
+        Assert.Equal("de", model.EffectiveLanguage);
+    }
+
+    [Fact]
+    public void ALanguageCanBeChosenWhileAnEnglishOnlyModelIsInUse()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+
+        model.SpeechLanguage = "ja";
+
+        Assert.Equal("ja", model.SpeechLanguage);
+        Assert.Equal("en", model.EffectiveLanguage);
+        Assert.Equal("ja", model.ToSettings().Language);
     }
 
     [Fact]

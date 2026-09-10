@@ -114,14 +114,14 @@ using var engine = new WhisperTranscriptionEngine(modelOverride is null
     {
         ModelsRootProvider = () => storage.ModelsRoot,
         ModelProvider = () => model.SelectedModel,
-        LanguageProvider = () => model.SpeechLanguage,
+        LanguageProvider = () => model.EffectiveLanguage,
         RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
         Runtime = selectedRuntime,
     }
     : new WhisperOptions
     {
         ModelPathProvider = () => modelOverride,
-        LanguageProvider = () => model.SpeechLanguage,
+        LanguageProvider = () => model.EffectiveLanguage,
         RuntimeRootProvider = () => runtimeRoot ?? storage.RuntimeRoot,
         Runtime = selectedRuntime,
     });

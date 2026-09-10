@@ -763,7 +763,7 @@ public sealed partial class BantzModel
         _shortcutDelaySeconds = Math.Clamp(settings.ShortcutDelaySeconds, 0, 10);
         _shortcutsEnabled = settings.ShortcutsEnabled;
         _modelId = WhisperModelCatalog.Resolve(settings.ModelId).Id;
-        _speechLanguage = SpeechLanguages.Resolve(settings.Language, SelectedModel);
+        _speechLanguage = SpeechLanguages.Find(settings.Language)?.Code ?? "en";
         _captureDeviceId = settings.CaptureDeviceId;
         _captureDeviceName = settings.CaptureDeviceName;
         _shortcutToggleBinding = settings.ShortcutToggleBinding?.Copy();
@@ -830,15 +830,17 @@ public sealed partial class BantzModel
     /// <summary>The model transcription will use.</summary>
     public WhisperModel SelectedModel => WhisperModelCatalog.Resolve(_modelId);
 
-    /// <summary>The language code transcription will ask for.</summary>
+    /// <summary>The language the person chose, whether or not this model can honour it.</summary>
     public string SpeechLanguage
     {
-        get => SpeechLanguages.Resolve(_speechLanguage, SelectedModel);
+        get => _speechLanguage;
         set => SelectLanguage(value);
     }
 
+    /// <summary>The language transcription will actually ask for.</summary>
+    public string EffectiveLanguage => SpeechLanguages.Resolve(_speechLanguage, SelectedModel);
+
     public string SelectedModelName => SelectedModel.DisplayName;
-    public string LanguageRowsDisplay => SelectedModel.IsMultilingual ? "block" : "none";
     public string LanguageLockedDisplay => SelectedModel.IsMultilingual ? "none" : "flex";
     public string ModelStatus
     {
@@ -851,8 +853,10 @@ public sealed partial class BantzModel
 
             var description = $"{SelectedModel.DisplayName} · {SelectedModel.Summary}";
             var transcribes = SelectedModel.IsMultilingual
-                ? $"Transcribes {LanguageName}."
-                : "Transcribes English only.";
+                ? $"Transcribes {EffectiveLanguageName}."
+                : string.Equals(_speechLanguage, "en", StringComparison.Ordinal)
+                    ? "Transcribes English only."
+                    : $"Transcribes English only; {LanguageName} applies once a multilingual model is chosen.";
             return _installedModels.ContainsKey(SelectedModel.Id)
                 ? $"{description}. {transcribes}"
                 : $"{description}. Downloads on the first transcription. {transcribes}";
@@ -860,6 +864,7 @@ public sealed partial class BantzModel
     }
 
     public string LanguageName => SpeechLanguages.Find(_speechLanguage)?.Name ?? "English";
+    public string EffectiveLanguageName => SpeechLanguages.Find(EffectiveLanguage)?.Name ?? "English";
     public string InputDeviceListDisplay => InputDeviceRows.Count == 0 ? "none" : "block";
     public string EmptyInputDevicesDisplay => InputDeviceRows.Count == 0 ? "flex" : "none";
     public string SelectedInputDeviceName => _captureDeviceName ?? _captureDeviceId ?? "System default";
@@ -1093,11 +1098,8 @@ public sealed partial class BantzModel
     public void SelectModel(string id)
     {
         var model = WhisperModelCatalog.Resolve(id);
-        var language = SpeechLanguages.Resolve(_speechLanguage, model);
-        var changed = !string.Equals(model.Id, _modelId, StringComparison.Ordinal) ||
-            !string.Equals(language, _speechLanguage, StringComparison.Ordinal);
+        var changed = !string.Equals(model.Id, _modelId, StringComparison.Ordinal);
         _modelId = model.Id;
-        _speechLanguage = language;
         RefreshModelRows();
         if (changed)
         {
@@ -1105,10 +1107,13 @@ public sealed partial class BantzModel
         }
     }
 
-    /// <summary>Chooses the language to transcribe. English-only models keep English.</summary>
+    /// <summary>
+    /// Chooses the language to transcribe. The choice is remembered even while an English-only
+    /// model is in use, and takes effect as soon as a multilingual model is chosen.
+    /// </summary>
     public void SelectLanguage(string code)
     {
-        var language = SpeechLanguages.Resolve(code, SelectedModel);
+        var language = SpeechLanguages.Find(code)?.Code ?? "en";
         var changed = !string.Equals(language, _speechLanguage, StringComparison.Ordinal);
         _speechLanguage = language;
         RefreshModelRows();
@@ -1136,7 +1141,7 @@ public sealed partial class BantzModel
     {
         Runtime = SelectedRuntime,
         ModelId = SelectedModel.Id,
-        Language = SpeechLanguage,
+        Language = _speechLanguage,
         AutoWrite = AutoWrite,
         AutoEnter = AutoEnter,
         ClipboardPaste = ClipboardPaste,
