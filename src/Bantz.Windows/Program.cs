@@ -206,6 +206,43 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
     var snapshotWidth = PositiveArgument(args, "--snapshot-width", app.Width);
     var snapshotHeight = PositiveArgument(args, "--snapshot-height", app.Height);
     var renderer = new HeadlessRenderer(snapshotWidth, snapshotHeight);
+
+    void RenderFrame(CupriFace.Shell.RenderContext context)
+    {
+        context.Canvas.Clear(app.Background);
+        var presentation = app.Present(context.Width, context.Height);
+        context.Canvas.Save();
+        if (presentation.Scale != 1f)
+        {
+            context.Canvas.Scale(presentation.Scale);
+        }
+
+        document.Render(context.Canvas, presentation.LogicalWidth, presentation.LogicalHeight);
+        context.Canvas.Restore();
+    }
+
+    // Clicks are dispatched between two renders: the first gives the document its geometry, so a
+    // hit test lands on something, and the second captures what the click did.
+    var clicks = ClickPoints(args);
+    if (clicks.Count > 0)
+    {
+        // Clicking exercises handlers that would otherwise persist settings; a snapshot run only
+        // renders, so the settings file is left alone.
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        foreach (var (x, y) in clicks)
+        {
+            var hit = document.HitTest(x, y);
+            Console.WriteLine($"click ({x:N0},{y:N0}) hit: {DescribeNode(hit)}");
+            // A real pointer moves, presses and releases; a synthetic click alone does not reach
+            // components that track press state.
+            document.DispatchPointerMove(x, y);
+            var down = document.DispatchPointer(1, CupriFace.Interaction.PointerPhase.Down, x, y);
+            var up = document.DispatchPointer(1, CupriFace.Interaction.PointerPhase.Up, x, y);
+            Console.WriteLine($"  down={down} up={up} click={document.DispatchClick(x, y, 1)}");
+        }
+    }
+
     using var image = renderer.RenderFrames(1, context =>
     {
         context.Canvas.Clear(app.Background);
@@ -277,6 +314,57 @@ input.HotkeyReleased += () =>
     }
 };
 DesktopHost.Run(app);
+
+static List<(float X, float Y)> ClickPoints(string[] values)
+{
+    var points = new List<(float X, float Y)>();
+    for (var index = 0; index < values.Length - 1; index++)
+    {
+        if (!string.Equals(values[index], "--click", StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        var parts = values[index + 1].Split(',');
+        if (parts.Length == 2 &&
+            float.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out var x) &&
+            float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var y))
+        {
+            points.Add((x, y));
+        }
+    }
+
+    return points;
+}
+
+static string DescribeNode(object? node)
+{
+    if (node is null)
+    {
+        return "<nothing>";
+    }
+
+    var type = node.GetType();
+    var parts = new List<string>();
+    foreach (var name in new[] { "Tag", "Id", "ClassName", "Classes", "Text" })
+    {
+        var value = type.GetProperty(name)?.GetValue(node);
+        if (value is string text && text.Length > 0)
+        {
+            parts.Add($"{name}='{(text.Length > 40 ? text[..40] : text)}'");
+        }
+        else if (value is System.Collections.IEnumerable items and not string)
+        {
+            var joined = string.Join(" ", items.Cast<object>().Select(item => item?.ToString()));
+            if (joined.Length > 0)
+            {
+                parts.Add($"{name}='{joined}'");
+            }
+        }
+    }
+
+    return parts.Count > 0 ? string.Join(" ", parts) : type.Name;
+}
 
 static string? ArgumentValue(string[] values, string name) => values
     .SkipWhile(value => !string.Equals(value, name, StringComparison.OrdinalIgnoreCase))

@@ -156,6 +156,13 @@ public sealed class BantzApp : CupriApp
             SelectModel(action.Value);
             return true;
         });
+        document.OnAction("data-select-language", action =>
+        {
+            _model.SelectLanguage(action.Value);
+            _model.Status = $"Speech language set to {_model.LanguageName}";
+            UpdateModelSetup();
+            return true;
+        });
         document.OnAction("data-remove-model", action =>
         {
             RemoveModel(action.Value);
@@ -839,6 +846,7 @@ public sealed partial class BantzModel
     public List<BindingRow> BindingRows { get; set; } = [];
     public List<InputDeviceRow> InputDeviceRows { get; set; } = [];
     public List<SpeechModelRow> SpeechModelRows { get; set; } = [];
+    public List<SpeechLanguageRow> SpeechLanguageRows { get; set; } = [];
 
     /// <summary>The model transcription will use.</summary>
     public WhisperModel SelectedModel => WhisperModelCatalog.Resolve(_modelId);
@@ -1179,6 +1187,20 @@ public sealed partial class BantzModel
 
     private void RefreshModelRows()
     {
+        SpeechLanguageRows = SpeechLanguages.All
+            .Select(language =>
+            {
+                var selected = string.Equals(language.Code, _speechLanguage, StringComparison.Ordinal);
+                return new SpeechLanguageRow
+                {
+                    Code = language.Code,
+                    Name = language.Name,
+                    RowClass = selected ? "selected" : "",
+                    ActionLabel = selected ? "In use" : "Use",
+                };
+            })
+            .ToList();
+
         SpeechModelRows = WhisperModelCatalog.All
             .Select(model =>
             {
@@ -1259,6 +1281,15 @@ public sealed partial class BindingRow
     public string Id { get; set; } = "";
     public string Device { get; set; } = "";
     public string Name { get; set; } = "";
+}
+
+[CupriBindable]
+public sealed partial class SpeechLanguageRow
+{
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string RowClass { get; set; } = "";
+    public string ActionLabel { get; set; } = "";
 }
 
 [CupriBindable]

@@ -45,8 +45,21 @@ public sealed class SettingsStore
         }
     }
 
+    private bool _suspended;
+
+    /// <summary>
+    /// Stops this store writing. Used by tooling that drives the interface without meaning to
+    /// change the person's configuration.
+    /// </summary>
+    public void Suspend() => _suspended = true;
+
     public void Save(AppSettings settings)
     {
+        if (_suspended)
+        {
+            return;
+        }
+
         lock (_sync)
         {
             var path = _pathProvider();

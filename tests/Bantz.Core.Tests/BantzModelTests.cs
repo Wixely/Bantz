@@ -102,6 +102,24 @@ public sealed class BantzModelTests
     }
 
     [Fact]
+    public void EveryLanguageIsOfferedAsARowWithOneInUse()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+
+        var rows = model.SpeechLanguageRows;
+
+        Assert.Equal(SpeechLanguages.All.Count, rows.Count);
+        var inUse = Assert.Single(rows, row => row.ActionLabel == "In use");
+        Assert.Equal("en", inUse.Code);
+        Assert.Equal("selected", inUse.RowClass);
+
+        model.SelectLanguage("ja");
+
+        inUse = Assert.Single(model.SpeechLanguageRows, row => row.ActionLabel == "In use");
+        Assert.Equal("ja", inUse.Code);
+    }
+
+    [Fact]
     public void TheModelPickerRoundTripsThroughItsId()
     {
         var model = new BantzModel(AppSettings.Defaults());

@@ -39,8 +39,7 @@
     <div class="onboarding-card">
       <span class="eyebrow">FIRST-RUN SETUP</span>
       <h2>How should Bantz run Whisper?</h2>
-      <p class="whisper-explainer">Whisper is an on-device speech-recognition engine that turns your voice into text.</p>
-      <p class="runtime-intro">Choose the runtime, model and language Bantz should start with. All three can be changed later in Settings.</p>
+      <p class="runtime-intro">Whisper turns your voice into text on this device. Choose the runtime, model and language to start with; all three can be changed later in Settings.</p>
       <div class="runtime-choices">
         <div class="runtime-choice recommended {{GpuRuntimeClass}}">
           <span class="choice-badge">RECOMMENDED</span>
@@ -57,39 +56,21 @@
       </div>
       <div class="model-setup">
         <div class="setup-choices">
-          <cupri-select value="{{SelectedModelId}}" aria-label="Speech model">
-            <cupri-option value="tiny.en">Tiny (English)</cupri-option>
-            <cupri-option value="tiny">Tiny</cupri-option>
-            <cupri-option value="base.en">Base (English)</cupri-option>
-            <cupri-option value="base">Base</cupri-option>
-            <cupri-option value="small.en">Small (English)</cupri-option>
-            <cupri-option value="small">Small</cupri-option>
-            <cupri-option value="medium.en">Medium (English)</cupri-option>
-            <cupri-option value="medium">Medium</cupri-option>
-            <cupri-option value="large-v3-turbo">Large v3 Turbo</cupri-option>
-          </cupri-select>
-          <cupri-select value="{{SpeechLanguage}}" aria-label="Speech language">
-            <cupri-option value="auto">Detect automatically</cupri-option>
-            <cupri-option value="en">English</cupri-option>
-            <cupri-option value="ar">Arabic</cupri-option>
-            <cupri-option value="zh">Chinese</cupri-option>
-            <cupri-option value="cs">Czech</cupri-option>
-            <cupri-option value="nl">Dutch</cupri-option>
-            <cupri-option value="fr">French</cupri-option>
-            <cupri-option value="de">German</cupri-option>
-            <cupri-option value="hi">Hindi</cupri-option>
-            <cupri-option value="it">Italian</cupri-option>
-            <cupri-option value="ja">Japanese</cupri-option>
-            <cupri-option value="ko">Korean</cupri-option>
-            <cupri-option value="pl">Polish</cupri-option>
-            <cupri-option value="pt">Portuguese</cupri-option>
-            <cupri-option value="ru">Russian</cupri-option>
-            <cupri-option value="es">Spanish</cupri-option>
-            <cupri-option value="sv">Swedish</cupri-option>
-            <cupri-option value="tr">Turkish</cupri-option>
-            <cupri-option value="uk">Ukrainian</cupri-option>
-            <cupri-option value="vi">Vietnamese</cupri-option>
-          </cupri-select>
+          <span class="setup-label">Model</span>
+          <div class="setup-list binding-scroll" role="list">
+            <div class="binding-row setup-row {{RowClass}}" role="listitem" data-repeat="SpeechModelRows">
+              <strong>{{Name}}</strong>
+              <span class="setup-size">{{Summary}}</span>
+              <cupri-button variant="ghost" data-select-model="{{Id}}">{{ActionLabel}}</cupri-button>
+            </div>
+          </div>
+          <span class="setup-label">Language</span>
+          <div class="setup-list binding-scroll" role="list">
+            <div class="binding-row setup-row {{RowClass}}" role="listitem" data-repeat="SpeechLanguageRows">
+              <strong>{{Name}}</strong>
+              <cupri-button variant="ghost" data-select-language="{{Code}}">{{ActionLabel}}</cupri-button>
+            </div>
+          </div>
         </div>
         <div class="setup-progress">
           <span class="setup-status">{{ModelDownloadStatus}}</span>
@@ -243,29 +224,11 @@
         <cupri-icon name="info" size="13"></cupri-icon>
         <span>{{SelectedModelName}} is English-only. Choose a multilingual model to change language.</span>
       </div>
-      <div class="language-picker">
-        <cupri-select value="{{SpeechLanguage}}" aria-label="Speech language">
-          <cupri-option value="auto">Detect automatically</cupri-option>
-          <cupri-option value="en">English</cupri-option>
-          <cupri-option value="ar">Arabic</cupri-option>
-          <cupri-option value="zh">Chinese</cupri-option>
-          <cupri-option value="cs">Czech</cupri-option>
-          <cupri-option value="nl">Dutch</cupri-option>
-          <cupri-option value="fr">French</cupri-option>
-          <cupri-option value="de">German</cupri-option>
-          <cupri-option value="hi">Hindi</cupri-option>
-          <cupri-option value="it">Italian</cupri-option>
-          <cupri-option value="ja">Japanese</cupri-option>
-          <cupri-option value="ko">Korean</cupri-option>
-          <cupri-option value="pl">Polish</cupri-option>
-          <cupri-option value="pt">Portuguese</cupri-option>
-          <cupri-option value="ru">Russian</cupri-option>
-          <cupri-option value="es">Spanish</cupri-option>
-          <cupri-option value="sv">Swedish</cupri-option>
-          <cupri-option value="tr">Turkish</cupri-option>
-          <cupri-option value="uk">Ukrainian</cupri-option>
-          <cupri-option value="vi">Vietnamese</cupri-option>
-        </cupri-select>
+      <div class="language-list binding-scroll" role="list">
+        <div class="binding-row language-row {{RowClass}}" role="listitem" data-repeat="SpeechLanguageRows">
+          <strong>{{Name}}</strong>
+          <cupri-button variant="ghost" data-select-language="{{Code}}">{{ActionLabel}}</cupri-button>
+        </div>
       </div>
       <div class="capture-message" aria-live="polite">{{ModelStatus}}</div>
     </section>
