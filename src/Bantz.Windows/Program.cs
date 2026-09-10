@@ -262,6 +262,17 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         Console.WriteLine($"Overscroll('{path}', {delta}): {document.Overscroll(path, delta)}");
     }
 
+    var wheels = WheelPoints(args);
+    if (wheels.Count > 0)
+    {
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        foreach (var (x, y, delta) in wheels)
+        {
+            Console.WriteLine($"wheel ({x:N0},{y:N0}) delta {delta:N0}: {document.DispatchWheel(x, y, delta)}");
+        }
+    }
+
     var drag = ArgumentValue(args, "--drag");
     if (!string.IsNullOrWhiteSpace(drag))
     {
@@ -300,7 +311,8 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
 
             // Mimics the periodic Refresh the shell runs, which happens only while the app asks
             // for a tick.
-            if (args.Contains("--drag-refresh", StringComparer.OrdinalIgnoreCase) && app.RefreshIntervalSeconds > 0)
+            if (args.Contains("--drag-refresh-always", StringComparer.OrdinalIgnoreCase) ||
+                (args.Contains("--drag-refresh", StringComparer.OrdinalIgnoreCase) && app.RefreshIntervalSeconds > 0))
             {
                 document.Refresh();
             }
@@ -313,17 +325,6 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         }
 
         ReportScroll(document, "  after release");
-    }
-
-    var wheels = WheelPoints(args);
-    if (wheels.Count > 0)
-    {
-        settingsStore.Suspend();
-        using (renderer.RenderFrames(1, RenderFrame)) { }
-        foreach (var (x, y, delta) in wheels)
-        {
-            Console.WriteLine($"wheel ({x:N0},{y:N0}) delta {delta:N0}: {document.DispatchWheel(x, y, delta)}");
-        }
     }
 
     var scrollProbe = ArgumentValue(args, "--probe-scroll");

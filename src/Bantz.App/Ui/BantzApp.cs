@@ -5,6 +5,8 @@ using Bantz.Settings;
 using Bantz.Speech.Whisper;
 using CupriFace;
 using CupriFace.Binding;
+using CupriFace.Dom;
+using CupriFace.Interaction;
 using CupriFace.Resources;
 using SkiaSharp;
 
@@ -112,6 +114,7 @@ public sealed class BantzApp : CupriApp
 
             return true;
         });
+        document.OnPointer("data-scroll-grip", pointer => ScrollGrip(document, pointer));
         document.OnClick(".countdown-cancel", _ => _workflow.CancelPendingInjection());
         document.OnClick(".transcript-copy", _ => CopyTranscript());
         document.OnClick(".settings-open", _ => _model.Page = "settings");
@@ -752,6 +755,94 @@ public sealed class BantzApp : CupriApp
             _isRecording = isRecording;
             RecordingStateChanged?.Invoke(isRecording);
         }
+    }
+
+    // The runtime paints a 5px scroll thumb and only grabs a press within a few pixels of it —
+    // about half of which lands outside the list, on the panel, where it grabs nothing. Drawn at
+    // this window's scale that is a target roughly three pixels wide, so grabbing it was a coin
+    // toss. The whole 22px gutter is the grab target instead: rows stop short of it, so a press
+    // there can only mean scrolling. A press anywhere else declines, and the runtime handles it as
+    // the ordinary click it is.
+    private const float ScrollGripWidth = 22f;
+    private readonly Dictionary<int, (float PointerY, float ScrollY)> _scrollGrips = [];
+
+    private bool ScrollGrip(CupriDocument document, MultiPointerEvent pointer)
+    {
+        // The tree is rebuilt while a drag is still held, so the node is found again for every
+        // event rather than remembered. The element the event carries is resolved from the current
+        // tree, so it is the one to look for.
+        var node = FindNode(document.Root, pointer.Element);
+        if (node is null || !node.IsScrollable)
+        {
+            return false;
+        }
+
+        if (pointer.Phase == PointerPhase.Down)
+        {
+            var right = AbsoluteRight(node);
+            if (pointer.X < right - ScrollGripWidth || pointer.X > right)
+            {
+                return false; // not the gutter — this press belongs to whatever it landed on
+            }
+
+            _scrollGrips[pointer.Id] = (pointer.Y, node.ScrollY);
+            return true;
+        }
+
+        if (!_scrollGrips.TryGetValue(pointer.Id, out var grip))
+        {
+            return false;
+        }
+
+        if (pointer.Phase is PointerPhase.Up or PointerPhase.Cancel)
+        {
+            _scrollGrips.Remove(pointer.Id);
+            return true;
+        }
+
+        // The pointer moves the thumb, and the thumb travels the box height less its own length —
+        // the same mapping the runtime paints with, so the thumb stays under the pointer.
+        var boxHeight = node.ContentBoxHeight;
+        var thumbHeight = MathF.Max(28f, boxHeight * boxHeight / node.ScrollContentHeight);
+        var travel = boxHeight - thumbHeight;
+        if (travel > 0.5f)
+        {
+            node.ScrollY = Math.Clamp(
+                grip.ScrollY + ((pointer.Y - grip.PointerY) / travel * node.MaxScrollY),
+                0,
+                node.MaxScrollY);
+        }
+
+        return true;
+    }
+
+    private static float AbsoluteRight(RenderNode node)
+    {
+        var x = node.Width;
+        for (var walk = node; walk is not null; walk = walk.Parent)
+        {
+            x += walk.X;
+        }
+
+        return x;
+    }
+
+    private static RenderNode? FindNode(RenderNode node, object element)
+    {
+        if (ReferenceEquals(node.Element, element))
+        {
+            return node;
+        }
+
+        foreach (var child in node.Children)
+        {
+            if (FindNode(child, element) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     // Keeps the refresh tick alive long enough for the shell to run one tick and paint the change.

@@ -58,8 +58,11 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .compatibility-badge { color:#9aa5b7; }
 .model-setup { height:252px; flex-shrink:0; padding:12px 14px; border:1px solid #2b3345; border-radius:13px; background:#111720; display:flex; flex-direction:column; gap:10px; }
 .setup-choices { height:174px; flex:none; display:flex; flex-direction:column; gap:4px; }
+/* Same alignment inside the first-run card: the pickers reserve a scrollbar gutter, so the
+   progress row stops where their rows do. */
+.setup-progress { margin-right:22px; }
 .setup-label { flex:none; color:#8f9bac; font-size:9px; font-weight:700; letter-spacing:.6px; }
-.setup-list { height:68px; flex:none; padding-right:12px; display:flex; flex-direction:column; gap:4px; }
+.setup-list { height:68px; flex:none; display:flex; flex-direction:column; gap:4px; }
 .binding-row.setup-row { flex:none; height:32px; padding:4px 8px 4px 10px; }
 .setup-row strong { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#e5ebf4; font-size:11px; }
 .setup-size { flex:none; width:70px; overflow:hidden; white-space:nowrap; text-align:right; color:#8f9bad; font-size:9px; }
@@ -152,7 +155,7 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .keybinds-panel { height:418px; }
 .input-panel { height:418px; }
 .models-panel { height:470px; }
-.model-list { flex:1; min-height:0; padding-right:12px; display:flex; flex-direction:column; gap:4px; }
+.model-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:4px; }
 /* Nine rows are taller than the list, so without this they shrink to fit and the buttons, which
    keep their own height, spill over the rows above and below. */
 .binding-row.model-row { flex:none; height:40px; padding:5px 8px 5px 10px; }
@@ -167,7 +170,7 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .language-heading strong { font-size:12px!important; }
 .language-heading span { font-size:10px!important; }
 .language-locked { height:34px; flex:none; padding:8px 10px; border:1px dashed #51472e; border-radius:9px; background:#211e18; color:#b9af96; align-items:center; gap:8px; font-size:10px; }
-.language-list { height:104px; flex:none; padding-right:12px; display:flex; flex-direction:column; gap:4px; }
+.language-list { height:104px; flex:none; display:flex; flex-direction:column; gap:4px; }
 .binding-row.language-row { flex:none; height:32px; padding:4px 8px 4px 10px; }
 .language-row strong { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#e5ebf4; font-size:11px; }
 .language-row .cupri-button { flex:none; width:58px; padding:4px 6px; border-radius:8px; font-size:10px; }
@@ -181,7 +184,17 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .section-heading > div { display:flex; flex-direction:column; gap:3px; }
 .section-heading .cupri-button { padding:6px 9px; border-radius:8px; font-size:10px; }
 .binding-list { height:74px; flex:none; }
-.binding-scroll { overflow:scroll; }
+/* Everything else in a list panel stops where the list's rows stop, so the reserved scrollbar
+   gutter reads as a margin down the panel rather than as rows that came up short. */
+.bindings-panel > .section-heading,
+.bindings-panel > .binding-empty,
+.bindings-panel > .capture-message,
+.bindings-panel > .language-locked { margin-right:22px; }
+
+/* The gutter the scrollbar lives in. It is wider than the 5px the runtime paints because the
+   whole gutter is the grab target (see ScrollGrip): rows stop short of it, so a press there is
+   always a scroll and never a mis-hit row button. */
+.binding-scroll { overflow:scroll; padding-right:22px; }
 .binding-empty { height:98px; flex:none; padding:12px 14px; border:1px dashed #3a465d; border-radius:11px; background:#151c28; color:#718099; align-items:center; justify-content:center; gap:10px; }
 .binding-empty > div:last-child { display:flex; flex-direction:column; gap:3px; }
 .binding-empty strong { color:#dce3ed; font-size:12px; }.binding-empty span { color:#8f9bad; font-size:10px; }

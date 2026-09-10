@@ -57,7 +57,7 @@
       <div class="model-setup">
         <div class="setup-choices">
           <span class="setup-label">Model</span>
-          <div class="setup-list binding-scroll" role="list">
+          <div class="setup-list binding-scroll" data-scroll-grip="setup" role="list">
             <div class="binding-row setup-row {{RowClass}}" role="listitem" data-repeat="SpeechModelRows">
               <strong>{{Name}}</strong>
               <span class="setup-size">{{Summary}}</span>
@@ -65,7 +65,7 @@
             </div>
           </div>
           <span class="setup-label">Language</span>
-          <div class="setup-list binding-scroll" role="list">
+          <div class="setup-list binding-scroll" data-scroll-grip="setup" role="list">
             <div class="binding-row setup-row {{RowClass}}" role="listitem" data-repeat="SpeechLanguageRows">
               <strong>{{Name}}</strong>
               <cupri-button variant="ghost" data-select-language="{{Code}}">{{ActionLabel}}</cupri-button>
@@ -194,7 +194,7 @@
         <cupri-icon name="info" size="18"></cupri-icon>
         <div><strong>No microphones found</strong><span>Connect a recording device, then choose Refresh.</span></div>
       </div>
-      <div class="device-list binding-scroll" style="display:{{InputDeviceListDisplay}}" role="list">
+      <div class="device-list binding-scroll" data-scroll-grip="devices" style="display:{{InputDeviceListDisplay}}" role="list">
         <div class="binding-row device-row {{RowClass}}" role="listitem" data-repeat="InputDeviceRows">
           <span class="device-badge">{{Badge}}</span><strong>{{Name}}</strong>
           <cupri-button variant="ghost" data-select-input-device="{{Id}}">{{ActionLabel}}</cupri-button>
@@ -207,7 +207,7 @@
       <div class="section-heading">
         <div><strong>Speech model</strong><span>Larger models transcribe better and run slower.</span></div>
       </div>
-      <div class="model-list binding-scroll" role="list">
+      <div class="model-list binding-scroll" data-scroll-grip="models" role="list">
         <div class="binding-row model-row {{RowClass}}" role="listitem" data-repeat="SpeechModelRows">
           <span class="device-badge model-badge">{{Badge}}</span>
           <strong>{{Name}}</strong>
@@ -224,7 +224,7 @@
         <cupri-icon name="info" size="13"></cupri-icon>
         <span>{{SelectedModelName}} is English-only. Choose a multilingual model to change language.</span>
       </div>
-      <div class="language-list binding-scroll" role="list">
+      <div class="language-list binding-scroll" data-scroll-grip="languages" role="list">
         <div class="binding-row language-row {{RowClass}}" role="listitem" data-repeat="SpeechLanguageRows">
           <strong>{{Name}}</strong>
           <cupri-button variant="ghost" data-select-language="{{Code}}">{{ActionLabel}}</cupri-button>
@@ -242,7 +242,7 @@
         <cupri-icon name="info" size="18"></cupri-icon>
         <div><strong>No inputs assigned</strong><span>Add a keyboard, gamepad, or mouse button.</span></div>
       </div>
-      <div class="binding-list binding-scroll" style="display:{{BindingListDisplay}};height:{{BindingsListHeight}}px" role="list">
+      <div class="binding-list binding-scroll" data-scroll-grip="bindings" style="display:{{BindingListDisplay}};height:{{BindingsListHeight}}px" role="list">
         <div class="binding-row" role="listitem" data-repeat="BindingRows">
           <span class="device-badge">{{Device}}</span><strong>{{Name}}</strong>
           <cupri-button variant="ghost" data-remove-binding="{{Id}}">Remove</cupri-button>

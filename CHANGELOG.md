@@ -29,11 +29,16 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Fixed
 
-- Scrollbars can be dragged again. Bantz rebuilt its whole window ten times a second, and a rebuild
-  cancels whatever the pointer is dragging, so a grabbed scrollbar thumb stopped moving within a
-  tenth of a second of being grabbed. The window is now rebuilt when something actually changes it
-  from outside a click — audio levels while recording, a download's progress, a global shortcut —
-  which also spares an idle Bantz the work.
+- Scrollbars can be dragged. Two things stopped them. Bantz rebuilt its whole window ten times a
+  second, and a rebuild cancels whatever the pointer is dragging, so a grabbed thumb stopped moving
+  within a tenth of a second. The window is now rebuilt when something actually changes it from
+  outside a click — audio levels while recording, a download's progress, a global shortcut — which
+  also spares an idle Bantz the work.
+- Scrollbars are far easier to grab. The thumb the runtime paints is a few pixels wide at this
+  window's scale and only grabs a press that lands almost exactly on it, so grabbing it was close to
+  a coin toss. Every list now reserves a wider gutter and takes the press itself anywhere in it, at
+  any height, while a press on a row still selects the row. Dragging also survives whatever else the
+  window is doing, so it works during a download.
 
 ### Known limitations
 
