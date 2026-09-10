@@ -3,6 +3,26 @@
 All notable changes to Bantz are recorded here. Versions follow `MAJOR.MINOR.PATCH`; while Bantz
 is pre-1.0 a minor bump may change behaviour you rely on.
 
+## Unreleased
+
+### Added
+
+- `AudioCaptureOptions.RetainBuffer`, and an `AudioCaptureOptions.Streaming` preset that turns it
+  off. A capture session started with it off emits `FrameCaptured` as before and keeps none of the
+  audio, so `StopAsync` returns an empty buffer. `IAudioRecorder` was documented as returning the
+  complete recording, which obliged every session to hold it: fine for hold-to-talk, where a press
+  lasts seconds and the buffer is the product, but a microphone left open — a phone or a desktop
+  acting as a room microphone — accrued about 115 MB an hour that nothing would read. The default
+  is unchanged, so Bantz and any existing consumer keep the recording they expect. ([#5])
+
+### Changed
+
+- `IAudioRecorder.StopAsync` now states what both recorders already did: it does not return until
+  no further `FrameCaptured` will be raised, so the last of the audio can be handed off without
+  racing the backend.
+
+[#5]: https://github.com/Wixely/Bantz/issues/5
+
 ## 0.4.0
 
 ### Added
