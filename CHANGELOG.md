@@ -25,6 +25,18 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Fixed
 
+- Compatibility mode's Ctrl+V now carries a scan code. Every synthetic keystroke Bantz sent named
+  only a virtual key, leaving the scan code zero. Ordinary windows read the virtual key and were
+  fine; a Remote Desktop session or a virtual-machine console forwards the *scan code* to the
+  session and so received nothing at all — the transcript reached the clipboard and the paste
+  simply never happened. This is also why typing directly, which has no scan code either, was
+  unreliable in those places to begin with. Keys are now sent one at a time with both, since a
+  modifier arriving in the same instant as the key it modifies is not reliably seen as held across
+  a wire.
+- A modifier still held from the hold-to-talk shortcut no longer joins the paste. The shortcut is
+  itself a chord — Ctrl+Shift+Space by default — and the paste follows the moment it is released,
+  so a key still physically down turned Ctrl+V into Ctrl+Shift+V, which pastes differently or not
+  at all depending on the application. Anything still held is lifted first.
 - Compatibility mode pastes into Remote Desktop again — the case it exists for. Bantz put the
   transcript on the clipboard, sent Ctrl+V and took the transcript back 250 ms later. `SendInput`
   only queues the keystrokes, so that quarter-second was a race against the target reading the

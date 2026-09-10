@@ -138,6 +138,12 @@ if (ArgumentValue(args, "--paste-probe") is { Length: > 0 } probeText)
     return;
 }
 
+if (ArgumentValue(args, "--paste-selftest") is { Length: > 0 } selfTestLog)
+{
+    Bantz.Windows.PasteSelfTest.Run(selfTestLog);
+    return;
+}
+
 using var workflow = new DictationWorkflow(
     recorder,
     engine,
@@ -514,7 +520,11 @@ static void ProbePaste(string text)
     // A GUI app has no console to write to, so the timeline goes to a file next to the executable.
     var log = Path.Combine(AppContext.BaseDirectory, "bantz-paste-probe.txt");
     var clock = System.Diagnostics.Stopwatch.StartNew();
-    var lines = new List<string> { $"[{clock.ElapsedMilliseconds,5} ms] start" };
+    var lines = new List<string>
+    {
+        $"chord keys: {Bantz.Platform.Windows.WindowsTextInjector.DescribeChordKeys()}",
+        $"[{clock.ElapsedMilliseconds,5} ms] start",
+    };
     var result = Bantz.Platform.Windows.WindowsTextInjector.PasteThroughClipboard(text, pressEnter: false, sendChord: false);
     lines.Add($"[{clock.ElapsedMilliseconds,5} ms] done: {(result.Succeeded ? "ok" : result.Error)}");
     File.WriteAllLines(log, lines);

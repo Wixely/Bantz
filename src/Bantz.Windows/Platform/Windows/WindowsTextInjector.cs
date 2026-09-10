@@ -13,6 +13,18 @@ public sealed partial class WindowsTextInjector : ITextInjector
     private const ushort VirtualKeyReturn = 0x0D;
     private const ushort VirtualKeyControl = 0x11;
     private const ushort VirtualKeyV = 0x56;
+    private const ushort VirtualKeyShift = 0x10;
+    private const ushort VirtualKeyMenu = 0x12;
+    private const ushort VirtualKeyLeftWindows = 0x5B;
+    private const ushort VirtualKeyRightWindows = 0x5C;
+    private const uint MapVirtualKeyToScanCode = 0;
+
+    // Remote Desktop and virtual-machine consoles forward the SCAN CODE of a keystroke to the
+    // session, not the virtual key. A synthetic key with no scan code therefore arrives as nothing
+    // at all on the other side, which is why the paste appeared not to happen there while working
+    // locally — and why typing unicode directly, which has no scan code either, was flaky in the
+    // first place. Every synthetic key now carries both.
+    private const int ChordKeyGapMilliseconds = 15;
     private const uint ClipboardUnicodeText = 13;
     private const uint GlobalMoveable = 0x0002;
 
@@ -249,24 +261,51 @@ public sealed partial class WindowsTextInjector : ITextInjector
 
     private static void SendPasteChord(bool pressEnter)
     {
-        var inputs = new List<Input>(pressEnter ? 6 : 4)
-        {
-            VirtualKeyInput(VirtualKeyControl, keyUp: false),
-            VirtualKeyInput(VirtualKeyV, keyUp: false),
-            VirtualKeyInput(VirtualKeyV, keyUp: true),
-            VirtualKeyInput(VirtualKeyControl, keyUp: true),
-        };
+        // A hold-to-talk shortcut is itself a chord — Ctrl+Shift+Space by default — and the paste
+        // is sent the moment it is released. A modifier still physically down turns Ctrl+V into
+        // Ctrl+Shift+V, which pastes differently or not at all depending on the application, so
+        // anything still held is lifted first.
+        ReleaseHeldModifiers();
+
+        // Sent one key at a time rather than as one batch: a remote session has to forward each of
+        // these across the wire, and a modifier that arrives in the same instant as the key it
+        // modifies is not reliably seen as held.
+        SendKey(VirtualKeyControl, keyUp: false);
+        SendKey(VirtualKeyV, keyUp: false);
+        SendKey(VirtualKeyV, keyUp: true);
+        SendKey(VirtualKeyControl, keyUp: true);
         if (pressEnter)
         {
-            inputs.Add(VirtualKeyInput(VirtualKeyReturn, keyUp: false));
-            inputs.Add(VirtualKeyInput(VirtualKeyReturn, keyUp: true));
+            SendKey(VirtualKeyReturn, keyUp: false);
+            SendKey(VirtualKeyReturn, keyUp: true);
         }
+    }
 
-        var batch = inputs.ToArray();
-        if (SendInput((uint)batch.Length, batch, Marshal.SizeOf<Input>()) != batch.Length)
+    /// <summary>Lifts any modifier the person is still holding, so it cannot join the chord.</summary>
+    private static void ReleaseHeldModifiers()
+    {
+        foreach (var modifier in new[]
+                 {
+                     VirtualKeyShift, VirtualKeyMenu, VirtualKeyControl,
+                     VirtualKeyLeftWindows, VirtualKeyRightWindows,
+                 })
+        {
+            if ((GetAsyncKeyState(modifier) & 0x8000) != 0)
+            {
+                SendKey(modifier, keyUp: true);
+            }
+        }
+    }
+
+    private static void SendKey(ushort virtualKey, bool keyUp)
+    {
+        Input[] batch = [VirtualKeyInput(virtualKey, keyUp)];
+        if (SendInput(1, batch, Marshal.SizeOf<Input>()) != 1)
         {
             throw new Win32Exception(Marshal.GetLastWin32Error());
         }
+
+        Thread.Sleep(ChordKeyGapMilliseconds);
     }
 
     /// <summary>
@@ -495,6 +534,17 @@ public sealed partial class WindowsTextInjector : ITextInjector
         },
     };
 
+    /// <summary>
+    /// The scan codes the chord will carry, for the --paste-probe diagnostic. A zero here would
+    /// mean a remote session still receives nothing, so it is worth being able to look.
+    /// </summary>
+    internal static string DescribeChordKeys() => string.Join(", ", new[]
+    {
+        ("Ctrl", VirtualKeyControl),
+        ("V", VirtualKeyV),
+        ("Enter", VirtualKeyReturn),
+    }.Select(key => $"{key.Item1} vk=0x{key.Item2:X2} scan=0x{MapVirtualKeyW(key.Item2, MapVirtualKeyToScanCode):X2}"));
+
     private static Input VirtualKeyInput(ushort virtualKey, bool keyUp) => new()
     {
         Type = InputKeyboard,
@@ -503,6 +553,9 @@ public sealed partial class WindowsTextInjector : ITextInjector
             Keyboard = new KeyboardInput
             {
                 VirtualKey = virtualKey,
+                // Both, deliberately: ordinary windows read the virtual key, while a remote session
+                // or a virtual-machine console forwards the scan code and sees nothing without it.
+                Scan = (ushort)MapVirtualKeyW(virtualKey, MapVirtualKeyToScanCode),
                 Flags = keyUp ? KeyEventKeyUp : 0,
             },
         },
@@ -581,6 +634,12 @@ public sealed partial class WindowsTextInjector : ITextInjector
 
     [LibraryImport("user32.dll", SetLastError = true)]
     private static partial nint SetClipboardData(uint format, nint memory);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint MapVirtualKeyW(uint code, uint mapType);
+
+    [LibraryImport("user32.dll")]
+    private static partial short GetAsyncKeyState(int virtualKey);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     private static partial nint GlobalAlloc(uint flags, nuint bytes);
