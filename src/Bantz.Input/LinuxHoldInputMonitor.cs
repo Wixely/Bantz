@@ -60,10 +60,28 @@ public sealed class LinuxHoldInputMonitor : IDisposable
         _shortcutsEnabledProvider = shortcutsEnabledProvider;
         _shortcutToggleBindingProvider = shortcutToggleBindingProvider;
 
-        foreach (var device in devices)
+        _devices.AddRange(devices);
+    }
+
+    /// <summary>
+    /// Begins reading. Separate from construction on purpose: reading starts delivering events
+    /// immediately, and anything raised before the caller has subscribed is simply lost — which is
+    /// a race with a real device and a certainty with a device that is already holding its events.
+    /// </summary>
+    public void Start()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        lock (_sync)
         {
-            _devices.Add(device);
-            _readers.Add(Task.Run(() => ReadAsync(device, _stopping.Token)));
+            if (_readers.Count > 0)
+            {
+                return;
+            }
+
+            foreach (var device in _devices)
+            {
+                _readers.Add(Task.Run(() => ReadAsync(device, _stopping.Token)));
+            }
         }
     }
 

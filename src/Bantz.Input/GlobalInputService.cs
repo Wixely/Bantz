@@ -46,6 +46,7 @@ public sealed class LinuxGlobalInputService : IGlobalInputService
         _monitor.HotkeyPressed += OnPressed;
         _monitor.HotkeyReleased += OnReleased;
         _monitor.ShortcutTogglePressed += OnTogglePressed;
+        _monitor.Start();
     }
 
     /// <summary>How many device nodes were opened. Nothing can fire when this is zero.</summary>

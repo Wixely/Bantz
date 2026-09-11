@@ -32,7 +32,26 @@ public class LinuxHoldInputMonitorTests
     private static MemoryStream Device(params byte[][] events) =>
         new MemoryStream(events.SelectMany(bytes => bytes).ToArray());
 
-    private static async Task SettleAsync() => await Task.Delay(150);
+    /// <summary>
+    /// Waits for a thing to become true rather than for a fixed moment: the readers are background
+    /// tasks, and a clock-based wait is a test that passes on an idle machine and fails on a busy
+    /// one. Which it did, once, before this.
+    /// </summary>
+    private static async Task WaitFor(Func<bool> condition, string expected)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(5);
+        }
+
+        Assert.Fail($"Timed out waiting for {expected}.");
+    }
 
     [Fact]
     public async Task AGamepadButtonIsCaptured()
@@ -43,7 +62,8 @@ public class LinuxHoldInputMonitorTests
         monitor.BindingCaptured += binding => captured = binding;
 
         Assert.True(monitor.BeginCapture());
-        await SettleAsync();
+        monitor.Start();
+        await WaitFor(() => captured is not null, "the button to be captured");
 
         Assert.NotNull(captured);
         Assert.Equal(InputDevice.Gamepad, captured.Device);
@@ -65,7 +85,8 @@ public class LinuxHoldInputMonitorTests
         monitor.BindingCaptured += binding => captured = binding;
 
         Assert.True(monitor.BeginCapture());
-        await SettleAsync();
+        monitor.Start();
+        await WaitFor(() => captured is not null, "the chord to be captured");
 
         Assert.NotNull(captured);
         Assert.Equal(InputDevice.Keyboard, captured.Device);
@@ -83,23 +104,31 @@ public class LinuxHoldInputMonitorTests
         monitor.HotkeyPressed += () => events.Add("pressed");
         monitor.HotkeyReleased += () => events.Add("released");
 
-        await SettleAsync();
+        monitor.Start();
+        await WaitFor(() => events.Count == 2, "the hold to start and stop");
 
         Assert.Equal(["pressed", "released"], events);
     }
 
+    /// <summary>
+    /// The bound button comes second in the script, so by the time it has fired the unbound one
+    /// ahead of it has certainly been processed — which is what makes this a real assertion rather
+    /// than a race the test usually wins.
+    /// </summary>
     [Fact]
     public async Task AnUnboundButtonDoesNothing()
     {
         var binding = new InputBinding { Device = InputDevice.Gamepad, Code = ButtonSouth };
-        var events = new List<string>();
+        var pressed = 0;
         using var monitor = new LinuxHoldInputMonitor(
-            () => [binding], () => true, () => null, [Device(Press(0x131), Release(0x131))]);
-        monitor.HotkeyPressed += () => events.Add("pressed");
+            () => [binding], () => true, () => null,
+            [Device(Press(0x131), Release(0x131), Press(ButtonSouth), Release(ButtonSouth))]);
+        monitor.HotkeyPressed += () => pressed++;
 
-        await SettleAsync();
+        monitor.Start();
+        await WaitFor(() => pressed > 0, "the bound button to fire");
 
-        Assert.Empty(events);
+        Assert.Equal(1, pressed);
     }
 
     /// <summary>Turning shortcuts off has to stop them firing, without stopping the toggle itself.</summary>
@@ -116,7 +145,10 @@ public class LinuxHoldInputMonitorTests
         monitor.HotkeyPressed += () => pressed++;
         monitor.ShortcutTogglePressed += () => toggled++;
 
-        await SettleAsync();
+        // The toggle is last in the script, so its arrival proves the disabled binding ahead of it
+        // was seen and ignored.
+        monitor.Start();
+        await WaitFor(() => toggled > 0, "the toggle to fire");
 
         Assert.Equal(0, pressed);
         Assert.Equal(1, toggled);
@@ -137,24 +169,30 @@ public class LinuxHoldInputMonitorTests
         monitor.HotkeyPressed += () => events.Add("pressed");
         monitor.HotkeyReleased += () => events.Add("released");
 
-        await SettleAsync();
+        monitor.Start();
+        await WaitFor(() => events.Count == 2, "the split events to be decoded");
 
         Assert.Equal(["pressed", "released"], events);
     }
 
-    /// <summary>A touchscreen's contact events are not buttons and must not become bindings.</summary>
+    /// <summary>
+    /// A touchscreen's contact events are not buttons and must not become bindings. The gamepad
+    /// press after them is what proves the touch was seen and refused rather than still in flight.
+    /// </summary>
     [Fact]
     public async Task ATouchContactIsNotCapturedAsABinding()
     {
         InputBinding? captured = null;
         using var monitor = new LinuxHoldInputMonitor(
-            () => [], () => true, () => null, [Device(Press(0x14a), Release(0x14a))]);   // BTN_TOUCH
+            () => [], () => true, () => null,
+            [Device(Press(0x14a), Release(0x14a), Press(ButtonSouth))]);   // BTN_TOUCH, then A
         monitor.BindingCaptured += binding => captured = binding;
 
         Assert.True(monitor.BeginCapture());
-        await SettleAsync();
+        monitor.Start();
+        await WaitFor(() => captured is not null, "a button to be captured");
 
-        Assert.Null(captured);
+        Assert.Equal((uint)ButtonSouth, captured!.Code);
     }
 
     /// <summary>Key repeats arrive as value 2 and are neither a press nor a release.</summary>
@@ -166,9 +204,13 @@ public class LinuxHoldInputMonitorTests
         using var monitor = new LinuxHoldInputMonitor(
             () => [binding], () => true, () => null,
             [Device(Press(KeySpace), Event(EvdevCodes.EventKey, KeySpace, 2), Event(EvdevCodes.EventKey, KeySpace, 2), Release(KeySpace))]);
+        var released = 0;
         monitor.HotkeyPressed += () => pressed++;
+        monitor.HotkeyReleased += () => released++;
 
-        await SettleAsync();
+        // The release is last, so its arrival proves the repeats ahead of it were seen.
+        monitor.Start();
+        await WaitFor(() => released > 0, "the key to be released");
 
         Assert.Equal(1, pressed);
     }

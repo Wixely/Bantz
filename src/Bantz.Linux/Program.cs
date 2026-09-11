@@ -178,6 +178,7 @@ input.HotkeyReleased += () =>
         _ = workflow.StopAsync(ActivationKind.Hotkey);
     }
 };
+input.Start();
 
 DesktopHost.Run(app);
 

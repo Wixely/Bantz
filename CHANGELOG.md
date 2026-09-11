@@ -7,6 +7,12 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Added
 
+- The interface engine moves to CupriFace 0.22.0, and Bantz gains `--doctor` and `--dump-tree` from
+  it. The first reads the real engine and names markup and CSS it will quietly do nothing with —
+  including contents too tall for a fixed-height box, which do not clip but paint over whatever
+  follows, the fault behind two of the layout bugs fixed above. The second prints the laid-out tree
+  with absolute positions, which is how those were measured. Every page renders identically to
+  0.20.0, checked against a render of each before the upgrade.
 - **Global hold-to-talk on Linux**, including gamepad buttons — which is the point of Bantz on a
   Steam Deck. There was no implementation at all before: the service that registers global inputs
   returned a stub off Windows whose every registration did nothing, and the Linux host wired no

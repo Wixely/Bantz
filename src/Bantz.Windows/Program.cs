@@ -137,6 +137,25 @@ if (args.Contains("--probe-runtime", StringComparer.OrdinalIgnoreCase))
 }
 
 var injector = new WindowsTextInjector(() => model.ClipboardPaste);
+// CupriDoctor reads the real engine — the component registry, the style resolver's ignore list,
+// the laid-out tree — so it names markup and CSS the engine will quietly do nothing with. The model
+// is passed because the checks that need it are the valuable ones: a binding that names nothing
+// renders as empty space, and contents too tall for a fixed box paint over what follows rather than
+// clipping. Both look like something else entirely on screen.
+if (args.Contains("--doctor", StringComparer.OrdinalIgnoreCase))
+{
+    var report = CupriFace.Diagnostics.CupriDoctor.Check(
+        CupriFace.Resources.CupriSource.Embedded<BantzApp>("Assets/Bantz.html").ReadText(),
+        CupriFace.Resources.CupriSource.Embedded<BantzApp>("Assets/Bantz.css").ReadText(),
+        width: 646,
+        height: 720,
+        model: model);
+    var doctorPath = ArgumentValue(args, "--doctor-out")
+        ?? Path.Combine(AppContext.BaseDirectory, "bantz-doctor.txt");
+    File.WriteAllText(doctorPath, report.ToString());
+    return;
+}
+
 if (ArgumentValue(args, "--paste-probe") is { Length: > 0 } probeText)
 {
     ProbePaste(probeText);
@@ -371,10 +390,10 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         Walk(document.Root, 0, 0);
     }
 
-// Drives a real first-run download and samples what the screen would be painted from: the label,
-// and whether the app is still asking for the tick that paints it. The failure being guarded
-// against is a quiet stretch — the download is finished but the file is still being verified —
-// during which the tick used to lapse, leaving a stale "Downloading..." over a ready model.
+    // Drives a real first-run download and samples what the screen would be painted from: the label,
+    // and whether the app is still asking for the tick that paints it. The failure being guarded
+    // against is a quiet stretch — the download is finished but the file is still being verified —
+    // during which the tick used to lapse, leaving a stale "Downloading..." over a ready model.
     if (ArgumentValue(args, "--download-probe") is { Length: > 0 } probeLog)
     {
         settingsStore.Suspend();
@@ -411,6 +430,15 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         return;
     }
 
+
+    // The laid-out tree as text, with absolute positions and the problem shapes flagged. An image
+    // shows that something is wrong; this shows what.
+    if (ArgumentValue(args, "--dump-tree") is { Length: > 0 } dumpPath)
+    {
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+        File.WriteAllText(dumpPath, document.DumpTree());
+        return;
+    }
 
     var scrollProbe = ArgumentValue(args, "--probe-scroll");
     if (!string.IsNullOrWhiteSpace(scrollProbe))
