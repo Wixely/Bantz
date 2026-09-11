@@ -523,6 +523,7 @@ static void ProbePaste(string text)
     var lines = new List<string>
     {
         $"chord keys: {Bantz.Platform.Windows.WindowsTextInjector.DescribeChordKeys()}",
+        $"settle before Ctrl+V: {Environment.GetEnvironmentVariable("BANTZ_PASTE_SETTLE_MS") ?? "500 (default)"} ms",
         $"[{clock.ElapsedMilliseconds,5} ms] start",
     };
     var result = Bantz.Platform.Windows.WindowsTextInjector.PasteThroughClipboard(text, pressEnter: false, sendChord: false);

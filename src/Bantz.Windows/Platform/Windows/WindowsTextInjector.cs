@@ -61,10 +61,31 @@ public sealed partial class WindowsTextInjector : ITextInjector
     // the remote application asks for it, which is slower than that, so the transcript had been
     // taken back before it could be read and nothing arrived. It now stays put for as long as a
     // remote fetch plausibly takes.
+    // A remote session does not share the clipboard: when it changes, the client advertises the
+    // new format list to the server, and the remote application pastes whatever the server holds
+    // when the keystroke reaches it. Pressing Ctrl+V in the same instant as the write beats that
+    // advertisement across the wire and the remote side pastes nothing. It showed up as a paste
+    // that worked whenever the clipboard already had something on it — an earlier advertisement to
+    // fall back on — and did nothing at all from an empty clipboard.
+    // Half a second is generous for a local link and cheap next to the transcription that preceded
+    // it. A slow or distant session may want more, and nobody can guess a number for a network they
+    // cannot see, so BANTZ_PASTE_SETTLE_MS overrides it without a rebuild.
+    private const int DefaultClipboardAdvertiseMilliseconds = 500;
     private const int PasteHoldMilliseconds = 2_500;
     private const int PasteHoldPollMilliseconds = 50;
 
+    private static readonly int ClipboardAdvertiseMilliseconds = ResolveAdvertiseDelay();
+
     private readonly Func<bool> _useClipboardPaste;
+
+    private static int ResolveAdvertiseDelay() =>
+        int.TryParse(
+            Environment.GetEnvironmentVariable("BANTZ_PASTE_SETTLE_MS"),
+            System.Globalization.NumberStyles.Integer,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var configured)
+            ? Math.Clamp(configured, 0, 5_000)
+            : DefaultClipboardAdvertiseMilliseconds;
 
     public WindowsTextInjector()
         : this(null)
@@ -230,6 +251,10 @@ public sealed partial class WindowsTextInjector : ITextInjector
             }
 
             written = true;
+
+            // Give the change time to be advertised before the keystroke chases it.
+            Thread.Sleep(ClipboardAdvertiseMilliseconds);
+
             if (sendChord)
             {
                 SendPasteChord(pressEnter);

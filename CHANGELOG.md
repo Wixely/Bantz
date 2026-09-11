@@ -25,6 +25,13 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Fixed
 
+- Compatibility mode waits for the clipboard change to be advertised before pressing Ctrl+V. A
+  remote session does not share the clipboard: the client tells the server the clipboard changed,
+  and the remote application pastes whatever the server holds when the keystroke arrives. Pressing
+  in the same instant as the write beat that across the wire, so the remote side pasted nothing —
+  visible as a paste that worked whenever something was already on the clipboard, and did nothing
+  at all from an empty one. There is now half a second between the two, and
+  `BANTZ_PASTE_SETTLE_MS` raises it for a slow session without needing a new build.
 - Compatibility mode's Ctrl+V now carries a scan code. Every synthetic keystroke Bantz sent named
   only a virtual key, leaving the scan code zero. Ordinary windows read the virtual key and were
   fine; a Remote Desktop session or a virtual-machine console forwards the *scan code* to the
