@@ -106,6 +106,50 @@ public sealed class BantzModelTests
     /// writes the picked option to <see cref="BantzModel.SpeechLanguage"/> and toggles
     /// <see cref="BantzModel.LanguageOpen"/>. Both have to behave for the picker to work at all.
     /// </summary>
+    /// <summary>
+    /// A language control that cannot change anything is worse than none: it was offered alongside
+    /// a note explaining it would not work. It appears only when the model can honour a choice.
+    /// </summary>
+    [Fact]
+    public void TheLanguagePickerIsOfferedOnlyByAModelThatCanHonourIt()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+
+        model.SelectModel("base.en");
+        Assert.Equal("none", model.LanguagePickerDisplay);
+        Assert.Equal("flex", model.LanguageLockedDisplay);
+
+        model.SelectModel("base");
+        Assert.Equal("flex", model.LanguagePickerDisplay);
+        Assert.Equal("none", model.LanguageLockedDisplay);
+    }
+
+    /// <summary>
+    /// Every multilingual model shares one tokenizer, so the offer is the same whichever is chosen;
+    /// the curated nineteen this once listed left most of Whisper's languages unreachable.
+    /// </summary>
+    [Fact]
+    public void EveryLanguageWhisperKnowsIsOffered()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+
+        var options = model.SpeechLanguageOptions;
+
+        Assert.Equal(SpeechLanguages.All.Count, options.Count);
+        Assert.True(options.Count > 90, $"only {options.Count} languages are offered.");
+        Assert.Equal("Detect automatically", options[0].Name);
+        Assert.Equal("English", options[1].Name);
+        Assert.Equal(options.Select(option => option.Code).Distinct().Count(), options.Count);
+        foreach (var code in new[] { "no", "el", "he", "th", "cy", "is", "fa" })
+        {
+            Assert.Contains(options, option => string.Equals(option.Code, code, StringComparison.Ordinal));
+        }
+
+        // Cantonese only exists in the large-v3 tokenizer, so offering it would fail on every
+        // other model.
+        Assert.DoesNotContain(options, option => string.Equals(option.Code, "yue", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ThePickedLanguageRoundTripsAndAsksForTheSettingsToBeSaved()
     {

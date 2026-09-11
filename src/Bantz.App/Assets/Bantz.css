@@ -61,11 +61,12 @@ h1 { font-size:25px; } h2 { font-size:25px; }
    the two headings line up instead of one sitting a row lower. */
 .choice-badge { height:11px; flex:none; color:#68e0b1; font-size:9px; font-weight:700; letter-spacing:1px; }
 .compatibility-badge { color:#9aa5b7; }
-.model-setup { height:216px; flex-shrink:0; padding:12px 14px; border:1px solid #2b3345; border-radius:13px; background:#111720; display:flex; flex-direction:column; gap:10px; }
-.setup-choices { height:136px; flex:none; display:flex; flex-direction:column; gap:4px; }
+.model-setup { height:244px; flex-shrink:0; padding:12px 14px; border:1px solid #2b3345; border-radius:13px; background:#111720; display:flex; flex-direction:column; gap:10px; }
+.setup-choices { height:164px; flex:none; display:flex; flex-direction:column; gap:4px; }
 .setup-label { flex:none; color:#8f9bac; font-size:9px; font-weight:700; letter-spacing:.6px; }
-.setup-list { height:68px; flex:none; display:flex; flex-direction:column; gap:4px; }
-.binding-row.setup-row { flex:none; height:32px; padding:4px 8px 4px 10px; }
+.setup-english-only { height:30px; flex:none; padding:7px 9px; border:1px solid #2b3345; border-radius:8px; background:#141b26; color:#9aa5b7; font-size:11px; }
+.setup-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:4px; }
+.binding-row.setup-row { flex:none; height:28px; padding:2px 8px 2px 10px; }
 .setup-row strong { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#e5ebf4; font-size:11px; }
 .setup-size { flex:none; width:70px; overflow:hidden; white-space:nowrap; text-align:right; color:#8f9bad; font-size:9px; }
 .setup-row .cupri-button { flex:none; width:58px; padding:4px 6px; border-radius:8px; font-size:10px; }
@@ -179,7 +180,9 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
 .setup-select { flex:none; }
 .setup-select .cupri-select-trigger { min-width:0; width:100%; padding:6px 9px; border-radius:8px;
   border:1px solid #2b3345; background:#141b26; color:#e5ebf4; font-size:11px; }
-.cupri-select-list { border:1px solid #2b3345; background:#141b26; padding:5px; }
+/* A hundred languages will not fit on the screen, so the popup is a fixed height and scrolls.
+   Without this it paints one long list straight off the bottom of the window. */
+.cupri-select-list { height:300px; overflow:scroll; border:1px solid #2b3345; background:#141b26; padding:5px 12px 5px 5px; }
 .cupri-option-row { padding:6px 9px; color:#e5ebf4; font-size:11px; }
 .cupri-option-row.selected { color:#68e0b1; }
 .device-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:7px; }

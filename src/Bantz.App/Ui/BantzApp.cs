@@ -972,6 +972,17 @@ public sealed partial class BantzModel
     /// this through the binding — without it the trigger has nothing to open.</summary>
     public bool LanguageOpen { get; set; }
 
+    /// <summary>
+    /// Every language the dropdown offers. The same for every multilingual model, so it is built
+    /// once rather than per selection.
+    /// </summary>
+    public List<SpeechLanguageOption> SpeechLanguageOptions { get; } = SpeechLanguages.All
+        .Select(language => new SpeechLanguageOption { Code = language.Code, Name = language.Name })
+        .ToList();
+
+    /// <summary>Shown only when the model can act on it — an English-only model cannot.</summary>
+    public string LanguagePickerDisplay => SelectedModel.IsMultilingual ? "flex" : "none";
+
     /// <summary>The language the person chose, whether or not this model can honour it.</summary>
     public string SpeechLanguage
     {
@@ -1381,6 +1392,13 @@ public sealed partial class BindingRow
 {
     public string Id { get; set; } = "";
     public string Device { get; set; } = "";
+    public string Name { get; set; } = "";
+}
+
+[CupriBindable]
+public sealed partial class SpeechLanguageOption
+{
+    public string Code { get; set; } = "";
     public string Name { get; set; } = "";
 }
 

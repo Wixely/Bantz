@@ -7,6 +7,10 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Added
 
+- Every language Whisper knows, rather than a curated nineteen. Norwegian, Greek, Hebrew, Thai,
+  Welsh and seventy-odd others were simply unreachable. Cantonese is deliberately left out: its
+  token exists only in the large-v3 tokenizer, so offering it would be a choice that silently fails
+  on every other model.
 - `WaveHeader.TryParse`, which reads the RIFF/WAVE header `PcmAudio.CreateWaveStream` writes, for
   audio arriving from somewhere else — a speech server replying with `response_format: wav`, where
   the header is the only place the sample rate is stated. It walks the chunk list rather than
@@ -54,6 +58,16 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   restore, which the old code would do.
 
 ### Changed
+
+- The language picker appears only when the chosen model can act on it. An English-only model used
+  to be offered a full language dropdown alongside a note explaining that the dropdown would not
+  work — a choice and a contradiction of it on the same screen. Now that model says "transcribes
+  English only" and offers nothing to set, and the space goes to the model list.
+- First-run setup says which models are multilingual. The model rows there carried no badge at all,
+  so nothing on that screen explained why a language could be chosen or why it sometimes could not
+  be. They now carry the same ENGLISH and MULTI badges as the Models tab, the list shows enough
+  rows to include the one that is selected, and the language row follows the same rule as the
+  Models tab.
 
 - **Breaking, for anyone implementing `ITranscriptionEngine`.** `IsReady`, `InitializeAsync` and
   `GetDiagnostics` are abstract; they used to have default implementations. A default interface
