@@ -107,6 +107,32 @@ public sealed class BantzModelTests
     /// <see cref="BantzModel.LanguageOpen"/>. Both have to behave for the picker to work at all.
     /// </summary>
     /// <summary>
+    /// Choosing a model is a choice, not an instruction to fetch it: the rows say Select, and
+    /// downloading is a separate button that only a model without a copy on disk offers.
+    /// </summary>
+    [Fact]
+    public void ChoosingAModelIsSeparateFromFetchingIt()
+    {
+        var model = new BantzModel(AppSettings.Defaults());
+        model.SetInstalledModels(new Dictionary<string, long> { ["base.en"] = 141_000_000 });
+
+        var installed = Assert.Single(model.SpeechModelRows, row => row.Id == "base.en");
+        Assert.Equal("Selected", installed.ActionLabel);
+        Assert.Equal("none", installed.DownloadDisplay);
+
+        var absent = Assert.Single(model.SpeechModelRows, row => row.Id == "small");
+        Assert.Equal("Select", absent.ActionLabel);
+        Assert.Equal("block", absent.DownloadDisplay);
+
+        model.SelectModel("small");
+
+        var chosen = Assert.Single(model.SpeechModelRows, row => row.Id == "small");
+        Assert.Equal("Selected", chosen.ActionLabel);
+        // Still offered, because choosing it did not fetch it.
+        Assert.Equal("block", chosen.DownloadDisplay);
+    }
+
+    /// <summary>
     /// A language control that cannot change anything is worse than none: it was offered alongside
     /// a note explaining it would not work. It appears only when the model can honour a choice.
     /// </summary>
@@ -215,7 +241,7 @@ public sealed class BantzModelTests
         var absent = model.SpeechModelRows.Single(row => row.Id == "small");
 
         Assert.Equal("selected", installed.RowClass);
-        Assert.Equal("In use", installed.ActionLabel);
+        Assert.Equal("Selected", installed.ActionLabel);
         Assert.Equal("141 MiB", installed.Summary);
         Assert.Equal("flex", installed.InstalledDisplay);
         Assert.Equal("none", installed.RemoveDisplay);

@@ -59,6 +59,12 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Changed
 
+- Choosing a speech model no longer downloads it. Clicking a model started fetching it
+  immediately, which committed you to a few hundred megabytes before you could see what it offered
+  — whether it is multilingual, and which language it can be set to. The rows now read **Select**
+  and **Selected**, a separate **Download** sits beside any model without a copy on disk, and a
+  selected model that has not been downloaded still arrives on its first transcription, as it
+  always did.
 - The language picker appears only when the chosen model can act on it. An English-only model used
   to be offered a full language dropdown alongside a note explaining that the dropdown would not
   work — a choice and a contradiction of it on the same screen. Now that model says "transcribes

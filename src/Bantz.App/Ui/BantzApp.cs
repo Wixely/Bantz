@@ -165,6 +165,17 @@ public sealed class BantzApp : CupriApp
             SelectModel(action.Value);
             return true;
         });
+        document.OnAction("data-download-model", action =>
+        {
+            var model = WhisperModelCatalog.Resolve(action.Value);
+            if (!_engine.IsInstalled(model))
+            {
+                _model.Status = $"Downloading {model.DisplayName}…";
+                _ = DownloadModelAsync(model);
+            }
+
+            return true;
+        });
         document.OnAction("data-remove-model", action =>
         {
             RemoveModel(action.Value);
@@ -476,17 +487,16 @@ public sealed class BantzApp : CupriApp
         _model.SelectModel(model.Id);
         UpdateModelSetup();
         RefreshInstalledModels();
-        if (_engine.IsInstalled(model))
-        {
-            _model.Status = $"Speech model set to {model.DisplayName}";
-            return;
-        }
 
-        _model.Status = $"Downloading {model.DisplayName}…";
-        _ = DownloadSelectedModelAsync(model);
+        // Selecting used to start the download. It meant committing to a few hundred megabytes
+        // before you could see what the model offered — whether it is multilingual, which language
+        // it can be set to. The download waits to be asked for, or for the first transcription.
+        _model.Status = _engine.IsInstalled(model)
+            ? $"Speech model set to {model.DisplayName}"
+            : $"Speech model set to {model.DisplayName}. It downloads when you first use it.";
     }
 
-    private async Task DownloadSelectedModelAsync(WhisperModel model)
+    private async Task DownloadModelAsync(WhisperModel model)
     {
         if (_modelDownloadInProgress)
         {
@@ -1330,8 +1340,9 @@ public sealed partial class BantzModel
                             ? $"{size / 1_048_576d:N0} MiB"
                             : $"{model.DownloadBytes / 1_048_576d:N0} MiB",
                     RowClass = selected ? "selected" : "",
-                    ActionLabel = selected ? "In use" : "Use",
+                    ActionLabel = selected ? "Selected" : "Select",
                     InstalledDisplay = installed && !downloading ? "flex" : "none",
+                    DownloadDisplay = !installed && !downloading ? "block" : "none",
                     RemoveDisplay = installed && !selected && !downloading ? "block" : "none",
                 };
             })
@@ -1412,6 +1423,7 @@ public sealed partial class SpeechModelRow
     public string RowClass { get; set; } = "";
     public string ActionLabel { get; set; } = "";
     public string InstalledDisplay { get; set; } = "none";
+    public string DownloadDisplay { get; set; } = "none";
     public string RemoveDisplay { get; set; } = "none";
 }
 
