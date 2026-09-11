@@ -87,7 +87,8 @@ public sealed class BantzApp : CupriApp
     // permanent tick therefore made the scrollbars impossible to drag: a grab died within 100ms.
     // Work that arrives from outside the click path (audio levels, dictation state, downloads,
     // global hotkeys) asks for the tick instead, and it stops once that work goes quiet.
-    public override double RefreshIntervalSeconds => Environment.TickCount64 <= _redrawUntil ? 0.1 : 0;
+    public override double RefreshIntervalSeconds =>
+        _modelDownloadInProgress || Environment.TickCount64 <= _redrawUntil ? 0.1 : 0;
     protected override CupriSource MarkupSource => EmbeddedAsset("Assets/Bantz.html");
     protected override CupriSource StyleSource => EmbeddedAsset("Assets/Bantz.css");
 
@@ -260,6 +261,14 @@ public sealed class BantzApp : CupriApp
         finally
         {
             _modelDownloadInProgress = false;
+
+            // Whatever happened — finished, failed — the label and the status line have just been
+            // written from a task continuation, and nothing else is going to ask for the screen to
+            // be painted. Progress reports do that while they are arriving, but the last of them
+            // comes before the download is verified, which for a model of this size is seconds of
+            // quiet. Without this the button kept saying "Downloading..." over a model that was
+            // ready, and clicking it continued.
+            RequestRedraw();
         }
     }
 

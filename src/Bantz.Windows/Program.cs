@@ -371,6 +371,47 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
         Walk(document.Root, 0, 0);
     }
 
+// Drives a real first-run download and samples what the screen would be painted from: the label,
+// and whether the app is still asking for the tick that paints it. The failure being guarded
+// against is a quiet stretch — the download is finished but the file is still being verified —
+// during which the tick used to lapse, leaving a stale "Downloading..." over a ready model.
+    if (ArgumentValue(args, "--download-probe") is { Length: > 0 } probeLog)
+    {
+        settingsStore.Suspend();
+        using (renderer.RenderFrames(1, RenderFrame)) { }
+
+        // Found by class rather than by a guessed coordinate: the engine can say where a node is.
+        var button = FindByClass(document.Root, "model-download")
+            ?? throw new InvalidOperationException("The first-run Download button is not on this page.");
+        var box = CupriFace.Interaction.HitTesting.ScreenBox(button);
+        document.DispatchClick(box.X + (box.W / 2), box.Y + (box.H / 2), 1);
+
+        var samples = new List<string>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var lastLine = "";
+        while (clock.Elapsed < TimeSpan.FromMinutes(6))
+        {
+            var line = $"tick={app.RefreshIntervalSeconds:N2}s label='{model.ModelDownloadLabel}' status='{model.ModelDownloadStatus}'";
+            if (line != lastLine)
+            {
+                samples.Add($"[{clock.Elapsed.TotalSeconds,6:N1}s] {line}");
+                lastLine = line;
+            }
+
+            if (model.ModelDownloadLabel is "Continue" or "Retry download")
+            {
+                samples.Add($"[{clock.Elapsed.TotalSeconds,6:N1}s] settled");
+                break;
+            }
+
+            System.Threading.Thread.Sleep(250);
+        }
+
+        File.WriteAllLines(probeLog, samples);
+        return;
+    }
+
+
     var scrollProbe = ArgumentValue(args, "--probe-scroll");
     if (!string.IsNullOrWhiteSpace(scrollProbe))
     {
@@ -493,6 +534,24 @@ input.HotkeyReleased += () =>
     }
 };
 DesktopHost.Run(app);
+
+static CupriFace.Dom.RenderNode? FindByClass(CupriFace.Dom.RenderNode node, string className)
+{
+    if (node.Element?.ClassList.Contains(className) == true)
+    {
+        return node;
+    }
+
+    foreach (var child in node.Children)
+    {
+        if (FindByClass(child, className) is { } found)
+        {
+            return found;
+        }
+    }
+
+    return null;
+}
 
 static CupriFace.Dom.RenderNode? NodeParent(CupriFace.Dom.RenderNode node) => node.Parent;
 

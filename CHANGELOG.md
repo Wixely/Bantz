@@ -29,6 +29,12 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Fixed
 
+- First-run setup says **Continue** when the download finishes. It had been leaving
+  "Downloading..." over a model that was ready — clicking it continued, because only the label was
+  stale. The last progress report arrives before the downloaded file is verified, and verifying a
+  141 MiB model against its published hash takes about a second in which nothing reports anything;
+  the window that keeps the screen painting had closed by then, so the final label never appeared.
+  The screen now keeps painting for as long as a download is running, whatever it is doing.
 - Settings and diagnostics rows draw the separator between them. They asked for a `border-bottom`,
   which the interface engine does not support and silently ignored, so the line had never appeared.
 - The runtime cards on first-run setup no longer print their description over their button. The
