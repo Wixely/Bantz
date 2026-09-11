@@ -17,7 +17,126 @@ public static class GlobalInputService
 {
     public static IGlobalInputService Create() => OperatingSystem.IsWindows()
         ? new WindowsGlobalInputService()
-        : new UnsupportedGlobalInputService();
+        : OperatingSystem.IsLinux()
+            ? new LinuxGlobalInputService()
+            : new UnsupportedGlobalInputService();
+}
+
+/// <summary>
+/// A Linux service for keyboard, mouse, and gamepad bindings, read from the kernel's evdev nodes.
+/// Which devices can be read depends on the machine: on a Steam Deck the controller can be and the
+/// touchscreen cannot, so <see cref="DeviceCount"/> says how many were actually opened.
+/// </summary>
+public sealed class LinuxGlobalInputService : IGlobalInputService
+{
+    private readonly object _sync = new();
+    private readonly List<InputBinding> _bindings = [];
+    private readonly LinuxHoldInputMonitor _monitor;
+    private InputBinding? _toggleBinding;
+    private bool _disposed;
+
+    public LinuxGlobalInputService()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("This service reads Linux input devices.");
+        }
+
+        _monitor = new LinuxHoldInputMonitor(Snapshot, () => Enabled, ToggleSnapshot);
+        _monitor.HotkeyPressed += OnPressed;
+        _monitor.HotkeyReleased += OnReleased;
+        _monitor.ShortcutTogglePressed += OnTogglePressed;
+    }
+
+    /// <summary>How many device nodes were opened. Nothing can fire when this is zero.</summary>
+    public int DeviceCount => _monitor.DeviceCount;
+
+    public bool IsSupported => _monitor.DeviceCount > 0;
+    public bool Enabled { get; set; } = true;
+    public event Action? Pressed;
+    public event Action? Released;
+    public event Action? TogglePressed;
+
+    public IDisposable Register(InputBinding binding)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(binding);
+        var registered = binding.Copy();
+        lock (_sync)
+        {
+            if (_bindings.Any(candidate => candidate.SameInput(registered)))
+            {
+                throw new InvalidOperationException("That global input is already registered.");
+            }
+
+            _bindings.Add(registered);
+        }
+
+        return new LinuxRegistration(this, registered.Id);
+    }
+
+    public void SetToggleBinding(InputBinding? binding)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        lock (_sync)
+        {
+            _toggleBinding = binding?.Copy();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _monitor.HotkeyPressed -= OnPressed;
+        _monitor.HotkeyReleased -= OnReleased;
+        _monitor.ShortcutTogglePressed -= OnTogglePressed;
+        _monitor.Dispose();
+        lock (_sync)
+        {
+            _bindings.Clear();
+            _toggleBinding = null;
+        }
+
+        _disposed = true;
+    }
+
+    private InputBinding[] Snapshot()
+    {
+        lock (_sync)
+        {
+            return _bindings.Select(binding => binding.Copy()).ToArray();
+        }
+    }
+
+    private InputBinding? ToggleSnapshot()
+    {
+        lock (_sync)
+        {
+            return _toggleBinding?.Copy();
+        }
+    }
+
+    private void Unregister(string id)
+    {
+        lock (_sync)
+        {
+            _bindings.RemoveAll(binding => string.Equals(binding.Id, id, StringComparison.Ordinal));
+        }
+    }
+
+    private void OnPressed() => Pressed?.Invoke();
+    private void OnReleased() => Released?.Invoke();
+    private void OnTogglePressed() => TogglePressed?.Invoke();
+
+    private sealed class LinuxRegistration(LinuxGlobalInputService owner, string id) : IDisposable
+    {
+        private LinuxGlobalInputService? _owner = owner;
+        public void Dispose() => Interlocked.Exchange(ref _owner, null)?.Unregister(id);
+    }
 }
 
 /// <summary>A Windows service for keyboard, mouse, and XInput bindings.</summary>

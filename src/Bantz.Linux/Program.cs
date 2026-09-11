@@ -1,5 +1,6 @@
 using Bantz;
 using Bantz.Core;
+using Bantz.Input;
 using Bantz.Capture;
 using Bantz.Platform.Linux;
 using Bantz.Settings;
@@ -150,6 +151,33 @@ if (!allowMultipleInstances && instanceLock is null)
 {
     return;
 }
+
+// Global hold-to-talk, read from the kernel's input devices. Nothing was wired here before, so
+// the Keybinds tab could not capture anything at all — which read as "gamepad buttons will not
+// bind" but applied equally to the keyboard and the mouse.
+using var input = new LinuxHoldInputMonitor(
+    model.GetBindingsSnapshot,
+    () => model.ShortcutsEnabled,
+    model.GetShortcutToggleBindingSnapshot);
+app.BeginBindingCapture = input.BeginCapture;
+app.CancelBindingCapture = input.CancelCapture;
+input.BindingCaptured += app.BindingCaptured;
+input.CaptureCancelled += app.BindingCaptureCancelled;
+input.ShortcutTogglePressed += app.ToggleShortcutsEnabled;
+input.HotkeyPressed += () =>
+{
+    if (model.Page is not ("onboarding" or "storage"))
+    {
+        _ = workflow.StartAsync(ActivationKind.Hotkey);
+    }
+};
+input.HotkeyReleased += () =>
+{
+    if (model.Page is not ("onboarding" or "storage"))
+    {
+        _ = workflow.StopAsync(ActivationKind.Hotkey);
+    }
+};
 
 DesktopHost.Run(app);
 

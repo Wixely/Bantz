@@ -64,7 +64,7 @@ public sealed record GlobalInputCapabilities(
     bool SupportsMouse,
     bool SupportsGamepad)
 {
-    public static GlobalInputCapabilities Current => OperatingSystem.IsWindows()
+    public static GlobalInputCapabilities Current => OperatingSystem.IsWindows() || OperatingSystem.IsLinux()
         ? new(true, true, true, true)
         : new(false, false, false, false);
 }

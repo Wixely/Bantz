@@ -7,6 +7,16 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Added
 
+- **Global hold-to-talk on Linux**, including gamepad buttons — which is the point of Bantz on a
+  Steam Deck. There was no implementation at all before: the service that registers global inputs
+  returned a stub off Windows whose every registration did nothing, and the Linux host wired no
+  capture, so the Keybinds tab looked like it worked and bound nothing, whatever device you pressed.
+  Bantz now reads the kernel's evdev devices directly, which is the only seam that sees input while
+  another window is focused. On a Steam Deck the controller Steam presents can be read without
+  privileges; devices this user cannot open are skipped rather than failing the rest.
+- `--list-hid` on the Linux build, which reports every input device the kernel offers, what it can
+  report, and whether Bantz may read it — the question that decides whether global input can work
+  on a given machine.
 - Every language Whisper knows, rather than a curated nineteen. Norwegian, Greek, Hebrew, Thai,
   Welsh and seventy-odd others were simply unreachable. Cantonese is deliberately left out: its
   token exists only in the large-v3 tokenizer, so offering it would be a choice that silently fails
