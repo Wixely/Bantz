@@ -358,7 +358,8 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
             var classes = node.Element?.ClassList;
             if (classes is not null && wanted.Any(want => classes.Contains(want)))
             {
-                Console.WriteLine($"{string.Join('.', classes),-34} x={x,7:N1} y={y,7:N1} w={node.Width,7:N1} h={node.Height,7:N1}");
+                var box = CupriFace.Interaction.HitTesting.ScreenBox(node);
+                Console.WriteLine($"{string.Join('.', classes),-34} x={box.X,7:N1} y={box.Y,7:N1} w={box.W,7:N1} h={box.H,7:N1}");
             }
 
             foreach (var child in node.Children)

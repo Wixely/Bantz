@@ -29,6 +29,13 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Fixed
 
+- Settings and diagnostics rows draw the separator between them. They asked for a `border-bottom`,
+  which the interface engine does not support and silently ignored, so the line had never appeared.
+- The buttons in a model row sit inside it. They were sized by padding alone, which made them
+  taller than the row holding them, so they hung over its edge; and the first-run list showed a
+  fourth row sliced through the middle by the edge of its box, which reads as broken rather than as
+  "there is more below" — the scrollbar's job.
+- A stray `</div>` in the Models tab, left over from replacing the language list with a dropdown.
 - Compatibility mode waits for the clipboard change to be advertised before pressing Ctrl+V. A
   remote session does not share the clipboard: the client tells the server the clipboard changed,
   and the remote application pastes whatever the server holds when the keystroke arrives. Pressing
