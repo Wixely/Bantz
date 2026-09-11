@@ -11,6 +11,32 @@
       "stopAtEntry": false
     },
     {
+      // Starts at the storage question with nothing chosen, downloaded or remembered — the whole
+      // first run, including fetching the runtime and the model. --data-root keeps all of that in
+      // artifacts/onboarding-data, so a real installation is never touched.
+      "name": "Bantz: first run (fresh, downloads the model)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Bantz: build, then erase first-run data",
+      "program": "${workspaceFolder}/src/Bantz.Windows/bin/Debug/net10.0-windows10.0.17763.0/win-x64/Bantz.Windows.exe",
+      "args": ["--data-root", "${workspaceFolder}/artifacts/onboarding-data"],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false
+    },
+    {
+      // The same first run, but the models already downloaded into the rehearsal folder are kept,
+      // so setup reaches Continue without fetching a few hundred megabytes again. Use this one to
+      // work on how setup looks and behaves.
+      "name": "Bantz: first run (keeps downloaded models)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Bantz: build, then erase first-run choices",
+      "program": "${workspaceFolder}/src/Bantz.Windows/bin/Debug/net10.0-windows10.0.17763.0/win-x64/Bantz.Windows.exe",
+      "args": ["--data-root", "${workspaceFolder}/artifacts/onboarding-data"],
+      "cwd": "${workspaceFolder}",
+      "stopAtEntry": false
+    },
+    {
       "name": "Bantz packages: MinimalDictation",
       "type": "coreclr",
       "request": "launch",

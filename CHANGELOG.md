@@ -30,8 +30,8 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   and the remote application pastes whatever the server holds when the keystroke arrives. Pressing
   in the same instant as the write beat that across the wire, so the remote side pasted nothing —
   visible as a paste that worked whenever something was already on the clipboard, and did nothing
-  at all from an empty one. There is now half a second between the two, and
-  `BANTZ_PASTE_SETTLE_MS` raises it for a slow session without needing a new build.
+  at all from an empty one. There is now a short gap between the two, and `BANTZ_PASTE_SETTLE_MS`
+  raises it for a session that needs longer without needing a new build.
 - Compatibility mode's Ctrl+V now carries a scan code. Every synthetic keystroke Bantz sent named
   only a virtual key, leaving the scan code zero. Ordinary windows read the virtual key and were
   fine; a Remote Desktop session or a virtual-machine console forwards the *scan code* to the
@@ -86,6 +86,9 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   (English) and English, so the first download is the one you meant to make. Choosing a language an
   English-only model cannot honour says so there rather than after the first transcription.
 - `--download-model <id>`, which downloads one model and exits, for scripted or offline setup.
+- `--data-root <path>`, which keeps settings, models and runtime files somewhere of your choosing
+  instead of the per-user folder. It stands in for the executable's folder as well, so a portable
+  installation beside the executable cannot claim a run that asked for somewhere else.
 
 ### Changed
 

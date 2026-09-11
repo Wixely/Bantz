@@ -67,10 +67,11 @@ public sealed partial class WindowsTextInjector : ITextInjector
     // advertisement across the wire and the remote side pastes nothing. It showed up as a paste
     // that worked whenever the clipboard already had something on it — an earlier advertisement to
     // fall back on — and did nothing at all from an empty clipboard.
-    // Half a second is generous for a local link and cheap next to the transcription that preceded
-    // it. A slow or distant session may want more, and nobody can guess a number for a network they
-    // cannot see, so BANTZ_PASTE_SETTLE_MS overrides it without a rebuild.
-    private const int DefaultClipboardAdvertiseMilliseconds = 500;
+    // Enough to let the change be advertised without the paste feeling delayed. A slow or distant
+    // session may need more — this is the gap that decided whether a paste from an empty clipboard
+    // arrived at all — and nobody can guess a number for a network they cannot see, so
+    // BANTZ_PASTE_SETTLE_MS overrides it without a rebuild.
+    private const int DefaultClipboardAdvertiseMilliseconds = 50;
     private const int PasteHoldMilliseconds = 2_500;
     private const int PasteHoldPollMilliseconds = 50;
 

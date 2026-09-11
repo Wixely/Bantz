@@ -20,9 +20,54 @@
     {
       "label": "Bantz: pack libraries",
       "type": "process",
-      "command": "pwsh",
-      "args": ["-NoProfile", "-File", "${workspaceFolder}/eng/PackLibraries.ps1"],
+      "command": "powershell",
+      "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/eng/PackLibraries.ps1"],
       "problemMatcher": "$msCompile"
+    },
+
+    // The first-run tasks work inside artifacts/onboarding-data, which --data-root points Bantz at,
+    // so a rehearsal never touches the real per-user folder, the models downloaded into it, or the
+    // portable BantzData folder beside the debug executable. --data-root stands in for the
+    // executable's folder too, so that portable marker cannot win the detection and skip setup.
+    {
+      "label": "Bantz: erase first-run data",
+      "detail": "Everything, so setup downloads the model again",
+      "type": "process",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Remove-Item -LiteralPath '${workspaceFolder}/artifacts/onboarding-data' -Recurse -Force -ErrorAction SilentlyContinue; exit 0"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bantz: erase first-run choices",
+      "detail": "Settings only, so setup finds the model already downloaded",
+      "type": "process",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-Command",
+        "Remove-Item -LiteralPath '${workspaceFolder}/artifacts/onboarding-data/settings.json','${workspaceFolder}/artifacts/onboarding-data/storage.json' -Force -ErrorAction SilentlyContinue; exit 0"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bantz: build, then erase first-run data",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Bantz: build", "Bantz: erase first-run data"],
+      "problemMatcher": []
+    },
+    {
+      "label": "Bantz: build, then erase first-run choices",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Bantz: build", "Bantz: erase first-run choices"],
+      "problemMatcher": []
     }
   ]
 }

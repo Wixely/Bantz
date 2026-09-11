@@ -38,7 +38,12 @@ if (args.Length == 3 && string.Equals(args[0], "--build-disabled-icon", StringCo
 }
 
 var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
-var storage = new AppStorage(executableDirectory);
+// --data-root points settings, models and runtimes somewhere other than the per-user folder, so a
+// debug session can rehearse first-run setup without disturbing a real installation. It stands in
+// for the executable's folder as well: a portable marker beside the executable is detected ahead of
+// anything else, and left to itself it would quietly win and make the rehearsal meaningless.
+var dataRoot = ArgumentValue(args, "--data-root");
+var storage = new AppStorage(dataRoot ?? executableDirectory, dataRoot);
 var settingsStore = new SettingsStore(() => storage.SettingsPath);
 var settings = storage.IsSelected ? settingsStore.Load() : AppSettings.Defaults();
 var modelOverride = ModelPath.Override(args);
