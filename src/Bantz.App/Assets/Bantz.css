@@ -46,12 +46,12 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .onboarding-card > p { margin:0; color:#aab5c5; font-size:12px; line-height:1.5; }
 .onboarding-card > .runtime-intro { color:#8f9bac; font-size:11px; }
 .runtime-choices { display:flex; gap:12px; }
-.runtime-choice { width:207px; height:158px; flex:none; padding:16px; border:1px solid #2b3345; border-radius:14px; background:#161b26; display:flex; flex-direction:column; gap:9px; transition:background 180ms ease,border-color 180ms ease,box-shadow 180ms ease; }
+.runtime-choice { width:207px; height:160px; flex:none; padding:16px; border:1px solid #2b3345; border-radius:14px; background:#161b26; display:flex; flex-direction:column; gap:9px; transition:background 180ms ease,border-color 180ms ease,box-shadow 180ms ease; }
 .runtime-choice:hover { border-color:#46546c; background:#19202c; }
 .runtime-choice.recommended { border-color:#3b665c; }
 .runtime-choice.selected { border-color:#68e0b1; background:#17251f; box-shadow:0 0 0 1px rgba(104,224,177,.22); }
 .runtime-choice strong { color:#f6f2ea; font-size:15px; }
-.runtime-choice > span:not(.choice-badge) { height:48px; color:#9aa5b7; font-size:11px; line-height:1.4; }
+.runtime-choice > span:not(.choice-badge) { height:34px; color:#9aa5b7; font-size:11px; line-height:1.4; }
 .runtime-pick-row { width:100%; height:38px; flex:none; display:flex; justify-content:center; }
 .runtime-pick { width:123px; height:38px; flex:none; border:2px solid #c9782d; border-radius:9px; color:#d99048; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; cursor:pointer; }
 .runtime-pick.selected { border-color:#c9782d; background:#c9782d; color:#fff; }

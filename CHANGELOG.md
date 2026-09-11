@@ -31,6 +31,10 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 - Settings and diagnostics rows draw the separator between them. They asked for a `border-bottom`,
   which the interface engine does not support and silently ignored, so the line had never appeared.
+- The runtime cards on first-run setup no longer print their description over their button. The
+  card was a fixed height sixteen pixels shorter than the content it held, so the GPU card's third
+  line of text and the top of "Prefer GPU" occupied the same nine pixels. The description is two
+  lines on both cards now, and the card admits the height of what it contains.
 - The buttons in a model row sit inside it. They were sized by padding alone, which made them
   taller than the row holding them, so they hung over its edge; and the first-run list showed a
   fourth row sliced through the middle by the edge of its box, which reads as broken rather than as
