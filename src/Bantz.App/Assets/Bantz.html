@@ -25,6 +25,9 @@
           <cupri-button class="storage-user">Use app data</cupri-button>
         </div>
         <div class="storage-choice">
+          <!-- Empty, but present: it holds the badge row open so both headings start at the same
+               height. Hidden from assistive technology, which has nothing to announce for it. -->
+          <span class="choice-badge" aria-hidden="true"></span>
           <strong>Portable</strong>
           <span>Creates a BantzData folder beside the executable, ideal for a self-contained or movable installation.</span>
           <cupri-button class="storage-portable" variant="ghost">Use portable</cupri-button>

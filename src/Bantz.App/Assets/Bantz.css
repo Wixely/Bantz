@@ -37,7 +37,10 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .storage-choice:hover { border-color:#46546c; background:#19202c; }
 .storage-choice.recommended { border-color:#3b665c; }
 .storage-choice strong { color:#f6f2ea; font-size:15px; }
-.storage-choice > span:not(.choice-badge) { min-height:64px; color:#9aa5b7; font-size:11px; line-height:1.4; }
+/* The description absorbs whatever height is going spare, which lands both buttons on the bottom
+   edge of their card however much text sits above them. */
+.storage-choice > span:not(.choice-badge) { flex:1; min-height:64px; color:#9aa5b7; font-size:11px; line-height:1.4; }
+.storage-choice .cupri-button { height:38px; flex:none; display:flex; align-items:center; justify-content:center; }
 .storage-note { padding:11px 13px; border:1px solid #2b3345; border-radius:11px; background:#111720; color:#aeb9ca; font-size:11px; line-height:1.4; }
 .onboarding-card h2 { font-size:25px; }
 .onboarding-card > p { margin:0; color:#aab5c5; font-size:12px; line-height:1.5; }
@@ -54,7 +57,9 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .runtime-pick { width:123px; height:38px; flex:none; border:2px solid #c9782d; border-radius:9px; color:#d99048; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; cursor:pointer; }
 .runtime-pick.selected { border-color:#c9782d; background:#c9782d; color:#fff; }
 .runtime-pick:hover { border-color:#ff9d57; }
-.choice-badge { color:#68e0b1; font-size:9px; font-weight:700; letter-spacing:1px; }
+/* A fixed height whether or not there is anything in it: the unbadged card keeps an empty one, so
+   the two headings line up instead of one sitting a row lower. */
+.choice-badge { height:11px; flex:none; color:#68e0b1; font-size:9px; font-weight:700; letter-spacing:1px; }
 .compatibility-badge { color:#9aa5b7; }
 .model-setup { height:216px; flex-shrink:0; padding:12px 14px; border:1px solid #2b3345; border-radius:13px; background:#111720; display:flex; flex-direction:column; gap:10px; }
 .setup-choices { height:136px; flex:none; display:flex; flex-direction:column; gap:4px; }
