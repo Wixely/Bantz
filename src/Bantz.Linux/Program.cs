@@ -13,6 +13,15 @@ if (!OperatingSystem.IsLinux())
     throw new PlatformNotSupportedException("This Bantz build targets Linux only.");
 }
 
+// What input hardware this machine has, and whether Bantz may read it. Bantz has no global input
+// on Linux, and building one means reading evdev nodes, so this reports what such a path would
+// find on a machine that cannot be attached to a debugger.
+if (args.Contains("--list-hid", StringComparer.OrdinalIgnoreCase))
+{
+    Console.Write(Bantz.Input.LinuxInputDevices.Describe());
+    return;
+}
+
 var executableDirectory = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
 var storage = new AppStorage(executableDirectory);
 var settingsStore = new SettingsStore(() => storage.SettingsPath);
