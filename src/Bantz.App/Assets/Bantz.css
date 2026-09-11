@@ -5,7 +5,7 @@ body { margin:0; --cupri-bg:#0d1017; --cupri-surface:#1c2230; --cupri-text:#f6f2
 .cupri-button:hover { background:#d78638; }
 .cupri-button.ghost:hover { background:#251c17; color:#ffad68; border-color:#ff9d57; }
 .cupri-button:active,.config-cog:active,.back-control:active,.runtime-pick:active,.runtime-option:active { transform:scale(.97); }
-.cupri-button { cursor:pointer; }
+.cupri-button { cursor:pointer; text-align:center; }
 .cupri-switch { cursor:pointer; border:1px solid transparent; transition:background 180ms ease,border-color 160ms ease; }
 .cupri-switch:hover { border-color:#6d778a; }
 .cupri-switch.on:hover { border-color:#e5a05e; }
@@ -40,7 +40,7 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 /* The description absorbs whatever height is going spare, which lands both buttons on the bottom
    edge of their card however much text sits above them. */
 .storage-choice > span:not(.choice-badge) { flex:1; min-height:64px; color:#9aa5b7; font-size:11px; line-height:1.4; }
-.storage-choice .cupri-button { height:38px; flex:none; display:flex; align-items:center; justify-content:center; }
+.storage-choice .cupri-button { height:38px; flex:none; display:flex; align-items:center; }
 .storage-note { padding:11px 13px; border:1px solid #2b3345; border-radius:11px; background:#111720; color:#aeb9ca; font-size:11px; line-height:1.4; }
 .onboarding-card h2 { font-size:25px; }
 .onboarding-card > p { margin:0; color:#aab5c5; font-size:12px; line-height:1.5; }
@@ -67,8 +67,8 @@ h1 { font-size:25px; } h2 { font-size:25px; }
 .setup-list { flex:1; min-height:0; display:flex; flex-direction:column; gap:4px; }
 .binding-row.setup-row { flex:none; height:28px; padding:2px 8px 2px 10px; }
 .setup-row strong { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#e5ebf4; font-size:11px; }
-.setup-size { flex:none; width:52px; overflow:hidden; white-space:nowrap; text-align:right; color:#8f9bad; font-size:9px; }
-.setup-row .cupri-button { flex:none; width:68px; height:24px; padding:0 4px; border-radius:8px; font-size:10px; display:flex; align-items:center; justify-content:center; }
+.setup-size { flex:none; width:44px; overflow:hidden; white-space:nowrap; text-align:right; color:#8f9bad; font-size:9px; }
+.setup-row .cupri-button { flex:none; width:82px; height:24px; padding:0 4px; border-radius:8px; font-size:10px; display:flex; align-items:center; }
 .setup-row.selected { background:#20313b; box-shadow:inset 0 0 0 1px #68e0b1; }
 /* The model picker reserves a scrollbar gutter, so this row stops where its rows do. */
 .setup-progress { height:44px; flex:none; margin-right:22px; display:flex; align-items:center; gap:10px; }
@@ -163,10 +163,10 @@ footer .shortcuts-disabled { color:#ff917f; font-weight:700; }
    keep their own height, spill over the rows above and below. */
 .binding-row.model-row { flex:none; height:40px; padding:5px 8px 5px 10px; }
 .model-row strong { flex:1; min-width:0; overflow:hidden; white-space:nowrap; color:#e5ebf4; font-size:12px; }
-.model-summary { width:62px; flex:none; overflow:hidden; white-space:nowrap; text-align:right; color:#8f9bad; font-size:10px; }
+.model-summary { width:52px; flex:none; overflow:hidden; white-space:nowrap; text-align:right; color:#8f9bad; font-size:10px; }
 .model-badge { min-width:52px; flex:none; font-size:8px; }
 .model-installed { flex:none; padding:3px 6px; border-radius:7px; background:#1f3a2f; color:#68e0b1; font-size:8px; font-weight:700; }
-.model-row .cupri-button { flex:none; width:68px; height:30px; padding:0 4px; border-radius:8px; font-size:10px; display:flex; align-items:center; justify-content:center; }
+.model-row .cupri-button { flex:none; width:82px; height:30px; padding:0 4px; border-radius:8px; font-size:10px; display:flex; align-items:center; }
 .model-row.selected { background:#20313b; box-shadow:inset 0 0 0 1px #68e0b1; }
 .model-row.selected .device-badge { background:#1f4a41; }
 .language-heading { height:34px; }
