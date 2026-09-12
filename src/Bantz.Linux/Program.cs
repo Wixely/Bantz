@@ -152,6 +152,19 @@ if (!allowMultipleInstances && instanceLock is null)
     return;
 }
 
+// CupriFace delivers touch only through its SDL window: the GLFW window it prefers has no touch
+// API, which is why taps did nothing on a Steam Deck while the same build was fine under a mouse.
+// The SDL GL path added in 0.23 has both, and the engine leaves the choice to the application, so
+// Bantz makes it on the evidence it already gathers — a machine with a touchscreen gets the window
+// that can hear it. An explicit setting always wins, including CUPRIFACE_SOFTWARE for a machine
+// with no working GL.
+if (Environment.GetEnvironmentVariable("CUPRIFACE_SDL_GL") is null &&
+    Environment.GetEnvironmentVariable("CUPRIFACE_SOFTWARE") is null &&
+    LinuxInputDevices.List().Any(device => device.HasTouch))
+{
+    Environment.SetEnvironmentVariable("CUPRIFACE_SDL_GL", "1");
+}
+
 // Global hold-to-talk, read from the kernel's input devices. Nothing was wired here before, so
 // the Keybinds tab could not capture anything at all — which read as "gamepad buttons will not
 // bind" but applied equally to the keyboard and the mouse.

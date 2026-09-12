@@ -7,7 +7,7 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Added
 
-- The interface engine moves to CupriFace 0.22.0, and Bantz gains `--doctor` and `--dump-tree` from
+- The interface engine moves to CupriFace 0.23.0, and Bantz gains `--doctor` and `--dump-tree` from
   it. The first reads the real engine and names markup and CSS it will quietly do nothing with —
   including contents too tall for a fixed-height box, which do not clip but paint over whatever
   follows, the fault behind two of the layout bugs fixed above. The second prints the laid-out tree
@@ -45,6 +45,14 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Fixed
 
+- **Taps work on a touchscreen.** The interface engine delivers touch only through its SDL window —
+  the one it prefers has no touch API at all — so on a Steam Deck nothing could be tapped while the
+  same build answered a mouse normally. Bantz now asks for the window that can hear a finger when
+  the machine has a touchscreen, which it reads from the kernel's own device list. Setting
+  `CUPRIFACE_SDL_GL` or `CUPRIFACE_SOFTWARE` yourself still wins, and a machine without a
+  touchscreen is left as it was.
+- The recording circle held 18px more than the space it declared, so it painted over the transcript
+  card below it. Nothing looked wrong, because the overlap fell in a gap.
 - First-run setup says **Continue** when the download finishes. It had been leaving
   "Downloading..." over a model that was ready — clicking it continued, because only the label was
   stale. The last progress report arrives before the downloaded file is verified, and verifying a
