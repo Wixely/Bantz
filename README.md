@@ -164,12 +164,33 @@ The MVP instead uses [Whisper.net](https://github.com/sandrohanea/whisper.net) 1
 
 FUTO does not need a medium or large Whisper model: Whisper also has smaller Tiny, Base, and Small families. FUTO's separate [whisper-acft](https://github.com/futo-org/whisper-acft) research is MIT-licensed and tunes those models to reduce latency and repetition when short recordings use a reduced audio context. Model quantization is a separate size optimization. Bantz currently downloads whisper.cpp's standard 142 MiB English Base model; evaluating an ACFT-compatible or quantized Base model is a future quality, latency, and size experiment.
 
+## Steam Deck
+
+Bantz runs in desktop mode and binds hold-to-talk to the controller.
+
+- **Gamepad bindings** read the kernel's input devices directly, because a push-to-talk shortcut has
+  to work while another window is focused. The controller Steam presents can be read without extra
+  permissions; face buttons, bumpers, Start/Select, the triggers and the D-pad can all be bound.
+- **The back paddles (L4/L5/R4/R5) cannot be bound.** Steam Input handles them itself and does not
+  forward them to any device node, so nothing on the system can see them — verified with
+  `--watch-input`, which shows every event the readable devices report. Map one to a keyboard key in
+  Steam's controller layout and bind that key instead.
+- **Touch** needs the interface runtime's SDL window; the window it otherwise prefers has no touch
+  support at all. Bantz asks for the right one when the machine has a touchscreen. Set
+  `CUPRIFACE_SDL_GL=0` to opt out, or `CUPRIFACE_SOFTWARE=1` for CPU rendering, which also has touch.
+- `--list-hid` reports what input hardware the kernel offers and whether Bantz may read it;
+  `--watch-input` prints events as they arrive. Both are the first thing to run when an input does
+  nothing.
+
+Bindings are stored as platform key codes, so a binding made on Windows names a different input on
+Linux. Set them up separately on each.
+
 ## Current limits
 
-- Linux support is experimental and currently lacks global keyboard/gamepad/mouse bindings and tray behaviour. Audio capture depends on `arecord`, while text insertion depends on `wtype` or `xdotool`.
-- XInput-compatible gamepads are supported. Other controller APIs are not yet mapped.
+- Linux has global keyboard, gamepad and mouse bindings, but no tray behaviour. Audio capture depends on `arecord`, while text insertion depends on `wtype` or `xdotool`.
+- XInput-compatible gamepads are supported on Windows, and anything the kernel reports as a gamepad on Linux. Other controller APIs are not yet mapped.
 - Windows prevents a normal process from injecting into an elevated destination. Run both applications at the same integrity level.
-- The default model recognises English. Supply another compatible GGML model when evaluating multilingual recognition; the current adapter still requests English and will need a language option before that becomes a supported flow.
+- Every language a multilingual Whisper model knows can be chosen, except Cantonese, whose token exists only in the large-v3 tokenizer.
 
 ## License
 
