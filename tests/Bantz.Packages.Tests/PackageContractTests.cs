@@ -231,10 +231,21 @@ plughw:CARD=PCH,DEV=0
         Assert.Equal("en", SpeechLanguages.Resolve(null, multilingual));
     }
 
+    /// <summary>
+    /// What the capabilities claim has to match what the platform can actually do. Linux gained
+    /// global bindings, and this test — which only runs its interesting case on Linux — is what
+    /// caught the claim and the implementation disagreeing.
+    /// </summary>
     [Fact]
     public void GlobalInputCapabilitiesAreHonestForCurrentPlatform()
     {
-        Assert.Equal(OperatingSystem.IsWindows(), GlobalInputCapabilities.Current.SupportsGlobalBindings);
+        var supported = OperatingSystem.IsWindows() || OperatingSystem.IsLinux();
+        var capabilities = GlobalInputCapabilities.Current;
+
+        Assert.Equal(supported, capabilities.SupportsGlobalBindings);
+        Assert.Equal(supported, capabilities.SupportsKeyboard);
+        Assert.Equal(supported, capabilities.SupportsMouse);
+        Assert.Equal(supported, capabilities.SupportsGamepad);
     }
 
     [Fact]
