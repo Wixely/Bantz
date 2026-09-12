@@ -45,6 +45,15 @@ is pre-1.0 a minor bump may change behaviour you rely on.
 
 ### Fixed
 
+- **Triggers and the D-pad can be bound.** On the controller Steam presents, L2, R2 and the D-pad
+  are absolute axes rather than buttons, and Bantz read only buttons — so the most natural
+  push-to-talk input on a handheld could not be captured at all, which is what "no gamepad button
+  binds" looked like from outside. A trigger counts as held past half its travel.
+- **A keybind capture that found nothing no longer locks the others out.** Arming a capture and
+  never pressing anything it could see left it armed for the rest of the session, and every later
+  attempt was refused with a message about finishing a recording — which had nothing to do with it.
+  An already-armed capture is now replaced rather than refused, and the message when Bantz genuinely
+  cannot listen says so.
 - **Taps work on a touchscreen.** The interface engine delivers touch only through its SDL window —
   the one it prefers has no touch API at all — so on a Steam Deck nothing could be tapped while the
   same build answered a mouse normally. Bantz now asks for the window that can hear a finger when

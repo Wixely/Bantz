@@ -215,6 +215,84 @@ public class LinuxHoldInputMonitorTests
         Assert.Equal(1, pressed);
     }
 
+    /// <summary>
+    /// A trigger is the obvious push-to-talk button on a handheld, and on the pad Steam presents it
+    /// is an axis rather than a button — so without this it could not be bound at all, which is
+    /// what "I cannot bind any of the gamepad keys" looked like from the outside.
+    /// </summary>
+    [Fact]
+    public async Task ATriggerCanBeCapturedAndHeld()
+    {
+        const int AbsoluteZ = 0x02;
+        InputBinding? captured = null;
+        using var monitor = new LinuxHoldInputMonitor(
+            () => [], () => true, () => null,
+            [Device(Event(EvdevCodes.EventAbsolute, AbsoluteZ, 255))]);
+        monitor.BindingCaptured += binding => captured = binding;
+
+        Assert.True(monitor.BeginCapture());
+        monitor.Start();
+        await WaitFor(() => captured is not null, "the trigger to be captured");
+
+        Assert.Equal(InputDevice.Gamepad, captured!.Device);
+        Assert.Equal("Gamepad L2", captured.DisplayName);
+    }
+
+    /// <summary>A trigger rests near zero and travels to full; half-way is where it counts as held.</summary>
+    [Fact]
+    public async Task ATriggerIsHeldPastHalfTravelAndReleasedBelowIt()
+    {
+        const int AbsoluteZ = 0x02;
+        var binding = new InputBinding
+        {
+            Device = InputDevice.Gamepad,
+            Code = (uint)EvdevCodes.AxisBindingCode(AbsoluteZ, 1),
+        };
+        var events = new List<string>();
+        using var monitor = new LinuxHoldInputMonitor(
+            () => [binding], () => true, () => null,
+            [Device(
+                Event(EvdevCodes.EventAbsolute, AbsoluteZ, 40),    // resting, not a press
+                Event(EvdevCodes.EventAbsolute, AbsoluteZ, 200),   // held
+                Event(EvdevCodes.EventAbsolute, AbsoluteZ, 220),   // still held, not a second press
+                Event(EvdevCodes.EventAbsolute, AbsoluteZ, 10))]); // let go
+        monitor.HotkeyPressed += () => events.Add("pressed");
+        monitor.HotkeyReleased += () => events.Add("released");
+
+        monitor.Start();
+        await WaitFor(() => events.Count == 2, "the trigger to be held and released");
+
+        Assert.Equal(["pressed", "released"], events);
+    }
+
+    /// <summary>
+    /// A hat flicked straight from one side to the other must not leave the first direction held:
+    /// the release has to be emitted before the new press.
+    /// </summary>
+    [Fact]
+    public async Task AHatFlickedAcrossReleasesTheDirectionItLeft()
+    {
+        const int AbsoluteHatX = 0x10;
+        var left = new InputBinding
+        {
+            Device = InputDevice.Gamepad,
+            Code = (uint)EvdevCodes.AxisBindingCode(AbsoluteHatX, -1),
+        };
+        var events = new List<string>();
+        using var monitor = new LinuxHoldInputMonitor(
+            () => [left], () => true, () => null,
+            [Device(
+                Event(EvdevCodes.EventAbsolute, AbsoluteHatX, -1),   // left, held
+                Event(EvdevCodes.EventAbsolute, AbsoluteHatX, 1))]); // straight to right
+        monitor.HotkeyPressed += () => events.Add("pressed");
+        monitor.HotkeyReleased += () => events.Add("released");
+
+        monitor.Start();
+        await WaitFor(() => events.Count == 2, "left to be pressed and released");
+
+        Assert.Equal(["pressed", "released"], events);
+    }
+
     /// <summary>Hands its content over a few bytes at a time, as a device under load would.</summary>
     private sealed class DribblingStream(byte[] content, int chunk) : Stream
     {

@@ -10,6 +10,21 @@ public static class EvdevCodes
     /// <summary>An <c>EV_KEY</c> event: a key or button changed state.</summary>
     public const ushort EventKey = 0x01;
 
+    /// <summary>An <c>EV_ABS</c> event: an absolute axis moved.</summary>
+    public const ushort EventAbsolute = 0x03;
+
+    // A gamepad's triggers and D-pad are axes, not buttons. On the pad Steam presents, L2 and R2
+    // are ABS_Z and ABS_RZ, and the D-pad is ABS_HAT0X/Y — so a push-to-talk binding on a trigger,
+    // which is the obvious one to want on a Steam Deck, arrives as nothing at all unless axes are
+    // read too. They become bindings through a code of their own, above every key code so the two
+    // can never collide.
+    private const int AxisTriggerLeft = 0x02;   // ABS_Z
+    private const int AxisTriggerRight = 0x05;  // ABS_RZ
+    private const int AxisHatX = 0x10;          // ABS_HAT0X
+    private const int AxisHatY = 0x11;          // ABS_HAT0Y
+    private const int AxisCodeBase = 0x10000;
+    private const int TriggerPressed = 128;     // half travel, of an axis that reports 0-255
+
     private const int MouseFirst = 0x110;
     private const int MouseLast = 0x117;
     private const int JoystickFirst = 0x120;
@@ -97,9 +112,28 @@ public static class EvdevCodes
 
     private static readonly string Letters = "  1234567890-=  qwertyuiop[]  asdfghjkl;'`  \\zxcvbnm,./";
 
+    /// <summary>Whether this axis can be held like a button.</summary>
+    public static bool IsBindableAxis(int axis) =>
+        axis is AxisTriggerLeft or AxisTriggerRight or AxisHatX or AxisHatY;
+
+    /// <summary>
+    /// Which way an axis is currently pushed: 1, -1, or 0 for released. A trigger only travels one
+    /// way and counts as held past half; a hat rests at zero and reports its direction.
+    /// </summary>
+    public static int AxisDirection(int axis, int value) => axis switch
+    {
+        AxisTriggerLeft or AxisTriggerRight => value >= TriggerPressed ? 1 : 0,
+        _ => Math.Sign(value),
+    };
+
+    /// <summary>The binding code for an axis pushed a given way.</summary>
+    public static int AxisBindingCode(int axis, int direction) =>
+        AxisCodeBase + (axis * 2) + (direction < 0 ? 1 : 0);
+
     /// <summary>Which kind of binding a code belongs to, or null for codes bindings ignore.</summary>
     public static InputDevice? DeviceFor(int code) => code switch
     {
+        >= AxisCodeBase => InputDevice.Gamepad,
         >= MouseFirst and <= MouseLast => InputDevice.Mouse,
         >= JoystickFirst and <= GamepadLast => InputDevice.Gamepad,
         >= TriggerHappyFirst and <= TriggerHappyLast => InputDevice.Gamepad,
@@ -129,6 +163,20 @@ public static class EvdevCodes
 
     private static string DescribeCode(int code)
     {
+        if (code >= AxisCodeBase)
+        {
+            var axis = (code - AxisCodeBase) / 2;
+            var negative = (code - AxisCodeBase) % 2 == 1;
+            return axis switch
+            {
+                AxisTriggerLeft => "L2",
+                AxisTriggerRight => "R2",
+                AxisHatX => negative ? "D-pad left" : "D-pad right",
+                AxisHatY => negative ? "D-pad up" : "D-pad down",
+                _ => $"Axis {axis}",
+            };
+        }
+
         if (Names.TryGetValue(code, out var name))
         {
             return name;

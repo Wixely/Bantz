@@ -158,12 +158,22 @@ if (!allowMultipleInstances && instanceLock is null)
 // Bantz makes it on the evidence it already gathers — a machine with a touchscreen gets the window
 // that can hear it. An explicit setting always wins, including CUPRIFACE_SOFTWARE for a machine
 // with no working GL.
+var touchDevices = LinuxInputDevices.List().Where(device => device.HasTouch).ToList();
 if (Environment.GetEnvironmentVariable("CUPRIFACE_SDL_GL") is null &&
     Environment.GetEnvironmentVariable("CUPRIFACE_SOFTWARE") is null &&
-    LinuxInputDevices.List().Any(device => device.HasTouch))
+    touchDevices.Count > 0)
 {
     Environment.SetEnvironmentVariable("CUPRIFACE_SDL_GL", "1");
 }
+
+// Said out loud because the alternative is a silent window choice on a machine that cannot be
+// attached to a debugger: if taps do not work, this line and the runtime's own say which of the
+// two windows is running and whether a touchscreen was found at all.
+Console.WriteLine(touchDevices.Count > 0
+    ? $"[Bantz] Touchscreen found ({touchDevices[0].Name}); asking for the window that reads touch. " +
+      $"CUPRIFACE_SDL_GL={Environment.GetEnvironmentVariable("CUPRIFACE_SDL_GL") ?? "(unset)"} " +
+      $"CUPRIFACE_SOFTWARE={Environment.GetEnvironmentVariable("CUPRIFACE_SOFTWARE") ?? "(unset)"}"
+    : "[Bantz] No touchscreen in /proc/bus/input/devices; leaving the window choice alone.");
 
 // Global hold-to-talk, read from the kernel's input devices. Nothing was wired here before, so
 // the Keybinds tab could not capture anything at all — which read as "gamepad buttons will not

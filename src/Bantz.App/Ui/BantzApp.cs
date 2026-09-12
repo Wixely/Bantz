@@ -442,6 +442,26 @@ public sealed class BantzApp : CupriApp
 
     private void StartCapture(BindingCapturePurpose purpose)
     {
+        // A capture that was armed and never satisfied stays armed — the press it waited for may
+        // simply never have arrived, which is what a device Bantz cannot see looks like. Refusing
+        // every later attempt because of it locks the keybinds out for the rest of the session, so
+        // an already-armed capture is cancelled and started afresh rather than treated as a reason
+        // to say no.
+        if (BeginBindingCapture?.Invoke() != true)
+        {
+            CancelBindingCapture?.Invoke();
+        }
+        else
+        {
+            _bindingCapturePurpose = purpose;
+            _model.CancelCaptureDisplay = "block";
+            _model.CaptureState = purpose == BindingCapturePurpose.ShortcutToggle
+                ? "Press the input that should enable or disable PTT shortcuts. Escape cancels."
+                : "Press a key, gamepad button, or mouse button outside Bantz. Escape cancels.";
+            _model.CaptureDisplay = "block";
+            return;
+        }
+
         if (BeginBindingCapture?.Invoke() == true)
         {
             _bindingCapturePurpose = purpose;
@@ -455,7 +475,9 @@ public sealed class BantzApp : CupriApp
         {
             _bindingCapturePurpose = BindingCapturePurpose.None;
             _model.CancelCaptureDisplay = "none";
-            _model.CaptureState = "Finish the current recording before changing an input.";
+            _model.CaptureState = GlobalInputCapabilities.Current.SupportsGlobalBindings
+                ? "Bantz cannot listen for an input right now. Stop the current recording and try again."
+                : "Global shortcuts are not available on this system, so inputs cannot be changed.";
             _model.CaptureDisplay = "block";
         }
     }

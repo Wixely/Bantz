@@ -30,6 +30,8 @@ public sealed class LinuxHoldInputMonitor : IDisposable
     private readonly object _sync = new();
     private readonly List<Task> _readers = [];
 
+    private readonly Dictionary<int, int> _axisDirections = [];
+
     private KeyboardModifiers _modifiers;
     private bool _capturing;
     private InputBinding? _held;
@@ -198,12 +200,54 @@ public sealed class LinuxHoldInputMonitor : IDisposable
         var type = BinaryPrimitives.ReadUInt16LittleEndian(raw[16..]);
         var code = BinaryPrimitives.ReadUInt16LittleEndian(raw[18..]);
         var value = BinaryPrimitives.ReadInt32LittleEndian(raw[20..]);
+        if (type == EvdevCodes.EventAbsolute)
+        {
+            HandleAxis(code, value);
+            return;
+        }
+
         if (type != EvdevCodes.EventKey || value == 2)
         {
             return; // not a key, or a repeat, which is neither a press nor a release
         }
 
         Handle(code, pressed: value == 1);
+    }
+
+    /// <summary>
+    /// An axis held like a button. Axes report continuously, so only a change of direction is a
+    /// press or a release; letting go of one direction releases it before the other is pressed, so
+    /// a hat flicked straight across cannot leave both held.
+    /// </summary>
+    private void HandleAxis(int axis, int value)
+    {
+        if (!EvdevCodes.IsBindableAxis(axis))
+        {
+            return;
+        }
+
+        var direction = EvdevCodes.AxisDirection(axis, value);
+        int previous;
+        lock (_sync)
+        {
+            previous = _axisDirections.GetValueOrDefault(axis);
+            if (direction == previous)
+            {
+                return;
+            }
+
+            _axisDirections[axis] = direction;
+        }
+
+        if (previous != 0)
+        {
+            Handle(EvdevCodes.AxisBindingCode(axis, previous), pressed: false);
+        }
+
+        if (direction != 0)
+        {
+            Handle(EvdevCodes.AxisBindingCode(axis, direction), pressed: true);
+        }
     }
 
     private void Handle(int code, bool pressed)
