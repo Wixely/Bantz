@@ -20,6 +20,9 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   Bantz now reads the kernel's evdev devices directly, which is the only seam that sees input while
   another window is focused. On a Steam Deck the controller Steam presents can be read without
   privileges; devices this user cannot open are skipped rather than failing the rest.
+- `--watch-input` on the Linux build, which prints every key and axis event the readable devices
+  report. A button that binds nowhere is either invisible to the kernel, in which case no
+  application can have it, or it arrives as a code Bantz does not offer yet — and this says which.
 - `--list-hid` on the Linux build, which reports every input device the kernel offers, what it can
   report, and whether Bantz may read it — the question that decides whether global input can work
   on a given machine.
@@ -54,7 +57,10 @@ is pre-1.0 a minor bump may change behaviour you rely on.
   attempt was refused with a message about finishing a recording — which had nothing to do with it.
   An already-armed capture is now replaced rather than refused, and the message when Bantz genuinely
   cannot listen says so.
-- **Taps work on a touchscreen.** The interface engine delivers touch only through its SDL window —
+- **Taps work on a touchscreen.** The interface runtime ships as two packages, and only one of them
+  had been upgraded: the window and input plumbing live in the shell package, which was still three
+  versions behind, so the release that added touch was not in the build at all. Both move together
+  now. The runtime delivers touch only through its SDL window —
   the one it prefers has no touch API at all — so on a Steam Deck nothing could be tapped while the
   same build answered a mouse normally. Bantz now asks for the window that can hear a finger when
   the machine has a touchscreen, which it reads from the kernel's own device list. Setting

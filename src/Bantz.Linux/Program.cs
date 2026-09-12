@@ -17,6 +17,55 @@ if (!OperatingSystem.IsLinux())
 // What input hardware this machine has, and whether Bantz may read it. Bantz has no global input
 // on Linux, and building one means reading evdev nodes, so this reports what such a path would
 // find on a machine that cannot be attached to a debugger.
+// Prints every key and axis event the readable devices report, so a button that binds nowhere can
+// be identified: either nothing arrives for it — the kernel never sees it, and no application can
+// — or it arrives as a code Bantz does not offer yet, and the line says which.
+if (args.Contains("--watch-input", StringComparer.OrdinalIgnoreCase))
+{
+    var watched = Bantz.Input.LinuxInputDevices.List()
+        .Where(device => device.EventNode is not null &&
+                         (device.HasGamepadButtons || device.HasKeyboardKeys || device.HasMouseButtons))
+        .ToList();
+    Console.WriteLine($"Watching {watched.Count} devices. Press the button, then Ctrl+C.");
+    foreach (var device in watched)
+    {
+        Console.WriteLine($"  {device.Name} -> {device.EventNode}");
+    }
+
+    var watchers = watched.Select(device => Task.Run(async () =>
+    {
+        try
+        {
+            await using var stream = File.OpenRead(device.EventNode!);
+            var buffer = new byte[24];
+            while (true)
+            {
+                var read = await stream.ReadAsync(buffer);
+                if (read < 24)
+                {
+                    return;
+                }
+
+                var type = BitConverter.ToUInt16(buffer, 16);
+                var code = BitConverter.ToUInt16(buffer, 18);
+                var value = BitConverter.ToInt32(buffer, 20);
+                if (type is 1 or 3)
+                {
+                    Console.WriteLine(
+                        $"{device.Name,-40} {(type == 1 ? "key" : "axis")} code={code} (0x{code:x}) value={value}");
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Console.WriteLine($"  (cannot read {device.EventNode}: {exception.GetType().Name})");
+        }
+    })).ToArray();
+
+    await Task.WhenAll(watchers);
+    return;
+}
+
 if (args.Contains("--list-hid", StringComparer.OrdinalIgnoreCase))
 {
     Console.Write(Bantz.Input.LinuxInputDevices.Describe());

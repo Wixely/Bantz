@@ -142,6 +142,34 @@ var injector = new WindowsTextInjector(() => model.ClipboardPaste);
 // is passed because the checks that need it are the valuable ones: a binding that names nothing
 // renders as empty space, and contents too tall for a fixed box paint over what follows rather than
 // clipping. Both look like something else entirely on screen.
+// How much two renders differ, and where. Turns "did the upgrade move anything" into a number
+// instead of a squint, and writes a picture with the changed pixels in magenta.
+if (ArgumentValue(args, "--image-diff") is { Length: > 0 } diffPair)
+{
+    var paths = diffPair.Split('|');
+    using var beforeStream = File.OpenRead(paths[0]);
+    using var afterStream = File.OpenRead(paths[1]);
+    using var before = SKBitmap.Decode(beforeStream);
+    using var after = SKBitmap.Decode(afterStream);
+    if (before is null || after is null)
+    {
+        Console.WriteLine("One of those files is not an image this build can decode.");
+        return;
+    }
+
+    var diff = CupriFace.Diagnostics.ImageDiff.Compare(before, after);
+    Console.WriteLine($"changed {diff.ChangedPixels} of {diff.TotalPixels} pixels ({diff.ChangedFraction:P4})");
+    if (paths.Length > 2)
+    {
+        using var picture = CupriFace.Diagnostics.ImageDiff.Visualise(before, after);
+        using var encoded = SKImage.FromBitmap(picture).Encode(SKEncodedImageFormat.Png, 100);
+        using var output = File.Create(paths[2]);
+        encoded.SaveTo(output);
+    }
+
+    return;
+}
+
 if (args.Contains("--doctor", StringComparer.OrdinalIgnoreCase))
 {
     var report = CupriFace.Diagnostics.CupriDoctor.Check(
