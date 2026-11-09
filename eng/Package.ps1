@@ -3,13 +3,19 @@ param(
     [Parameter(Mandatory)]
     [ValidateSet('windows-x64', 'linux-x64')]
     [string] $Platform,
-    [string] $Configuration = 'Release'
+    [string] $Configuration = 'Release',
+    [string] $Version
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$version = (dotnet msbuild (Join-Path $repoRoot 'src/Bantz.App/Bantz.App.csproj') -getProperty:Version).Trim()
-if (-not $version) { throw 'Could not read the Bantz version.' }
+if (-not $Version) {
+    # No -Version given: this is an ad-hoc local run, not a tagged release. Fall back to whatever
+    # is in Directory.Build.props so the script still works, but CI always passes the tag-derived version.
+    $Version = (dotnet msbuild (Join-Path $repoRoot 'src/Bantz.App/Bantz.App.csproj') -getProperty:Version).Trim()
+    if (-not $Version) { throw 'Could not read the Bantz version.' }
+}
+$version = $Version
 
 $isWindowsPackage = $Platform -eq 'windows-x64'
 $project = if ($isWindowsPackage) { 'src/Bantz.Windows/Bantz.Windows.csproj' } else { 'src/Bantz.Linux/Bantz.Linux.csproj' }
@@ -40,7 +46,7 @@ function Write-Checksum([string] $Path)
 Push-Location $repoRoot
 try {
     dotnet publish $project -c $Configuration -r $rid --self-contained true -o $publishRoot `
-        -p:DebugType=None -p:DebugSymbols=false
+        -p:Version=$version -p:DebugType=None -p:DebugSymbols=false
     if ($LASTEXITCODE -ne 0) { throw "$Platform publish failed." }
 
     $publishedFiles = @(Get-ChildItem -LiteralPath $publishRoot -File)

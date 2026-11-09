@@ -33,14 +33,19 @@ jobs:
           --password '${{ github.token }}'
           --store-password-in-clear-text
           --configfile NuGet.config
-      - name: Require tag to match project version
+      - name: Derive version from tag
         id: version
         shell: pwsh
         run: |
-          $version = (dotnet msbuild src/Bantz.App/Bantz.App.csproj -getProperty:Version).Trim()
-          if (-not $version) { throw 'Could not read the project version.' }
-          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
-            throw "Tag '$env:GITHUB_REF_NAME' does not match project version 'v$version'."
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $version = $env:GITHUB_REF_NAME -replace '^v', ''
+            if ($version -notmatch '^\d+\.\d+\.\d+(-[A-Za-z0-9.-]+)?$') { throw "Tag is not a valid version: $env:GITHUB_REF_NAME" }
+          }
+          else {
+            # Manual workflow_dispatch on a branch, not a release tag: fall back to whatever is in
+            # Directory.Build.props so this still works for an ad-hoc dry run.
+            $version = (dotnet msbuild src/Bantz.App/Bantz.App.csproj -getProperty:Version).Trim()
+            if (-not $version) { throw 'Could not read the project version.' }
           }
           "version=$version" >> $env:GITHUB_OUTPUT
       - name: Run release gates
@@ -48,7 +53,7 @@ jobs:
         run: ./eng/Verify.ps1
       - name: Pack libraries and run package-consumer smoke test
         shell: pwsh
-        run: ./eng/PackLibraries.ps1
+        run: ./eng/PackLibraries.ps1 -Version '${{ steps.version.outputs.version }}'
       - name: Upload library packages
         uses: actions/upload-artifact@v7
         with:
@@ -92,7 +97,7 @@ jobs:
           --configfile NuGet.config
       - name: Publish and smoke test
         shell: pwsh
-        run: ./eng/Package.ps1 -Platform '${{ matrix.platform }}'
+        run: ./eng/Package.ps1 -Platform '${{ matrix.platform }}' -Version '${{ needs.verify.outputs.version }}'
       - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.platform }}
