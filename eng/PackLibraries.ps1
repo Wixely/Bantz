@@ -1,11 +1,18 @@
 [CmdletBinding()]
 param(
     [string] $Configuration = 'Release',
-    [switch] $SkipConsumerSmoke
+    [switch] $SkipConsumerSmoke,
+    [string] $Version
 )
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+if (-not $Version) {
+    # No -Version given: this is an ad-hoc local run, not a tagged release. Fall back to whatever
+    # is in Directory.Build.props so the script still works, but CI always passes the tag-derived version.
+    $Version = (dotnet msbuild (Join-Path $repoRoot 'src/Bantz.App/Bantz.App.csproj') -getProperty:Version).Trim()
+    if (-not $Version) { throw 'Could not read the Bantz version.' }
+}
 $packageRoot = Join-Path $repoRoot 'artifacts/packages'
 $consumerRoot = Join-Path $repoRoot 'artifacts/package-consumer'
 $projects = @(
@@ -27,13 +34,13 @@ New-Item -ItemType Directory -Force -Path $packageRoot, $consumerRoot | Out-Null
 Push-Location $repoRoot
 try {
     foreach ($project in $projects) {
-        dotnet pack $project -c $Configuration -o $packageRoot
+        dotnet pack $project -c $Configuration -o $packageRoot -p:Version=$Version
         if ($LASTEXITCODE -ne 0) { throw "Packing $project failed." }
     }
 
     # The sample pins concrete versions so it can be copied out of the repository. A version bump
     # that forgets them fails the consumer restore with an opaque NU1603, so say so plainly here.
-    $version = (dotnet msbuild (Join-Path $repoRoot 'src/Bantz.App/Bantz.App.csproj') -getProperty:Version).Trim()
+    $version = $Version
     $samplePath = Join-Path $repoRoot 'samples/MinimalDictation/MinimalDictation.csproj'
     $pinned = @(Select-String -LiteralPath $samplePath -Pattern 'Include="Bantz\.[^"]+" Version="([^"]+)"' -AllMatches |
         ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
