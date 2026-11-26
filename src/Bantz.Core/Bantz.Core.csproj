@@ -5,6 +5,7 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="NAudio" Version="3.3.0" />
     <ProjectReference Include="../Bantz.Capture/Bantz.Capture.csproj" />
     <ProjectReference Include="../Bantz.Speech.Abstractions/Bantz.Speech.Abstractions.csproj" />
   </ItemGroup>
