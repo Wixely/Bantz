@@ -3,6 +3,15 @@
 All notable changes to Bantz are recorded here. Versions follow `MAJOR.MINOR.PATCH`; while Bantz
 is pre-1.0 a minor bump may change behaviour you rely on.
 
+## 0.5.4
+
+### Added
+
+- `--exit` on Windows quits the running instance. Closing the window only hides Bantz to the tray,
+  so an updater such as Multitool had no way to stop it before replacing its files. The exit code is
+  0 once Bantz has gone or was not running, and 3 when the running instance could not be reached,
+  matching Shade's `--exit`.
+
 ## 0.5.0
 
 ### Added
