@@ -3,7 +3,7 @@
 All notable changes to Bantz are recorded here. Versions follow `MAJOR.MINOR.PATCH`; while Bantz
 is pre-1.0 a minor bump may change behaviour you rely on.
 
-## 0.5.4
+## 0.5.5
 
 ### Added
 
