@@ -82,6 +82,10 @@ dotnet run --project src/Bantz.Windows -- --download-model small
 Only one interactive Bantz instance runs by default. Pass `--allow-multiple-instances` to start an
 additional instance, for example when testing two configurations side by side.
 
+On Windows, closing the window keeps Bantz in the tray. `Bantz --exit` quits the running instance
+instead, which is how updaters such as Multitool stop it; it exits with 0 once Bantz has gone or
+was not running, and 3 when the running instance could not be reached.
+
 The Linux x64 host is experimental. It supports the main hold-to-talk button, local transcription, text insertion, delays, Enter-afterwards, and always-on-top. It requires `glibc` 2.31 or newer and `libstdc++6`. Install `alsa-utils` for recording and either `wtype` (Wayland) or `xdotool` (X11) for text insertion. Compatibility mode additionally needs `wl-copy` and `wl-paste` (Wayland) or `xclip` (X11). Linux keeps one clipboard type rather than all of them, because those tools own the selection for a single type per invocation; text is preserved when the clipboard offers it, otherwise the first type it advertises. Then run:
 
 ```bash

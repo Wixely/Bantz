@@ -14,6 +14,16 @@ if (!OperatingSystem.IsWindows())
     throw new PlatformNotSupportedException("This first Bantz build supports Windows only.");
 }
 
+const string InstanceLockName = "Bantz.InteractiveApp";
+
+// Quits the running instance and exits: 0 when it has gone or was not running, 3 when it could not
+// be reached. Checked before anything else so the request never starts a second Bantz.
+if (args.Contains("--exit", StringComparer.OrdinalIgnoreCase))
+{
+    Environment.ExitCode = Bantz.Windows.InstanceExit.Request(InstanceLockName, TimeSpan.FromSeconds(15));
+    return;
+}
+
 if (args.Length == 3 && string.Equals(args[0], "--build-icon", StringComparison.OrdinalIgnoreCase))
 {
     BuildIconAssets(args[1], args[2]);
@@ -543,7 +553,7 @@ if (!string.IsNullOrWhiteSpace(snapshotPath))
 var allowMultipleInstances = args.Contains("--allow-multiple-instances", StringComparer.OrdinalIgnoreCase);
 using var instanceLock = allowMultipleInstances
     ? null
-    : SingleInstanceLock.TryAcquire("Bantz.InteractiveApp");
+    : SingleInstanceLock.TryAcquire(InstanceLockName);
 if (!allowMultipleInstances && instanceLock is null)
 {
     return;
@@ -589,6 +599,9 @@ input.HotkeyReleased += () =>
         _ = workflow.StopAsync(ActivationKind.Hotkey);
     }
 };
+// The window loop cannot return on request — closing only hides to the tray — so an exit request
+// ends the process. Windows releases the keyboard hook, the microphone and the instance lock with it.
+using var exitListener = instanceLock is null ? null : Bantz.Windows.InstanceExit.Listen(() => Environment.Exit(0));
 DesktopHost.Run(app);
 
 static CupriFace.Dom.RenderNode? FindByClass(CupriFace.Dom.RenderNode node, string className)

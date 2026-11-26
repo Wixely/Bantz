@@ -6,7 +6,7 @@
     <!-- Only a placeholder for ad-hoc local builds without a tag. Release builds pass -p:Version
          from the pushed tag; AssemblyVersion and FileVersion are deliberately left unset here so
          the SDK derives them from whichever Version is in effect, instead of freezing at this value. -->
-    <VersionPrefix>0.5.3</VersionPrefix>
+    <VersionPrefix>0.5.4</VersionPrefix>
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <RepositoryUrl>https://github.com/Wixely/Bantz</RepositoryUrl>
